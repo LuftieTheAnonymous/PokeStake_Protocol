@@ -10,14 +10,13 @@ import {PokemonStakingPool} from "../src/protocol/PokemonStakingPool.sol";
 import {RewardCalculator} from "../src/protocol/RewardCalculator.sol";
 import {VRFConsumer} from "../src/VRFConsumer.sol";
 
-
 contract DeployContracts is Script {
-        RewardCalculator rewardCalculator;
-        SnorlieCoin snorlieCoin;
-        PokeCardCollection pokeCardCollection;
-        PokeCardGenerator pokeCardGenerator;
-        PokemonStakingPool pokemonStakingPool;
-        VRFConsumer vrfConsumer;
+    RewardCalculator rewardCalculator;
+    SnorlieCoin snorlieCoin;
+    PokeCardCollection pokeCardCollection;
+    PokeCardGenerator pokeCardGenerator;
+    PokemonStakingPool pokemonStakingPool;
+    VRFConsumer vrfConsumer;
 
     function run() public returns (address, address, address, address, address) {
         vm.startBroadcast();
@@ -26,8 +25,16 @@ contract DeployContracts is Script {
         vrfConsumer = new VRFConsumer();
         pokeCardGenerator = new PokeCardGenerator(address(pokeCardCollection), address(vrfConsumer));
         rewardCalculator = new RewardCalculator(address(pokemonStakingPool));
-        pokemonStakingPool = new PokemonStakingPool(address(snorlieCoin), address(pokeCardCollection), address(pokeCardGenerator), address(rewardCalculator));
+        pokemonStakingPool = new PokemonStakingPool(
+            address(snorlieCoin), address(pokeCardCollection), address(pokeCardGenerator), address(rewardCalculator)
+        );
         vm.stopBroadcast();
-        return (address(snorlieCoin), address(pokeCardCollection), address(pokeCardGenerator), address(pokemonStakingPool), address(rewardCalculator));
+        return (
+            address(snorlieCoin),
+            address(pokeCardCollection),
+            address(pokeCardGenerator),
+            address(pokemonStakingPool),
+            address(rewardCalculator)
+        );
     }
 }

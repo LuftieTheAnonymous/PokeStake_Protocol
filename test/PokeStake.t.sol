@@ -9,16 +9,10 @@ import {PokeCardGenerator} from "../src/PokeCardGenerator.sol";
 import {PokemonStakingPool} from "../src/staking/PokemonStakingPool.sol";
 import {RewardCalculator} from "../src/staking/RewardCalculator.sol";
 
-
 contract PokeStakeTest is Test {
-
-SnorlieCoin snorlieCoin;
-PokeCardCollection pokeCardCollection;
-PokeCardGenerator pokeCardGenerator;
-PokemonStakingPool pokemonStakingPool;
-RewardCalculator rewardCalculator;
-
-
-
-
+    SnorlieCoin snorlieCoin;
+    PokeCardCollection pokeCardCollection;
+    PokeCardGenerator pokeCardGenerator;
+    PokemonStakingPool pokemonStakingPool;
+    RewardCalculator rewardCalculator;
 }

@@ -9,14 +9,13 @@ import {ERC721URIStorage} from "../lib/openzeppelin-contracts/contracts/token/ER
 contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     uint256 private _nextTokenId;
-    
+
     constructor(address defaultAdmin, address minter) ERC721("PokeCard", "PIKA") {
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(MINTER_ROLE, minter);
     }
 
-    function safeMint(address to, string memory uri) public onlyRole(MINTER_ROLE) returns (uint256)
-    {
+    function safeMint(address to, string memory uri) public onlyRole(MINTER_ROLE) returns (uint256) {
         uint256 tokenId = _nextTokenId++;
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
@@ -25,12 +24,7 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, AccessC
 
     // The following functions are overrides required by Solidity.
 
-    function tokenURI(uint256 tokenId)
-        public
-        view
-        override(ERC721, ERC721URIStorage)
-        returns (string memory)
-    {
+    function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory) {
         return super.tokenURI(tokenId);
     }
 
@@ -42,7 +36,6 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, AccessC
     {
         return super.supportsInterface(interfaceId);
     }
-
 
     function totalSupply() public view returns (uint256) {
         return _nextTokenId;
