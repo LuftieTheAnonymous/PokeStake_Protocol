@@ -6,7 +6,7 @@ import {ERC721} from "../lib/openzeppelin-contracts/contracts/token/ERC721/ERC72
 import {ERC721Burnable} from "../lib/openzeppelin-contracts/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import {ERC721URIStorage} from "../lib/openzeppelin-contracts/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 
-contract PokeCard is ERC721, ERC721URIStorage, ERC721Burnable, AccessControl {
+contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     uint256 private _nextTokenId;
     
@@ -41,5 +41,10 @@ contract PokeCard is ERC721, ERC721URIStorage, ERC721Burnable, AccessControl {
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
+    }
+
+
+    function totalSupply() public view returns (uint256) {
+        return _nextTokenId;
     }
 }

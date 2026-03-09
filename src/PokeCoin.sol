@@ -11,7 +11,7 @@ contract SnorlieCoin is ERC20, ERC20Burnable, AccessControl, ERC20Permit {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
     constructor(address defaultAdmin, address minter)
-        ERC20("SnorlieCoin", "SNORE")
+        ERC20("SnorlieCoin", "SNORlIE")
         ERC20Permit("SnorlieCoin")
     {
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
