@@ -10,7 +10,7 @@ import {ERC20Permit} from "../lib/openzeppelin-contracts/contracts/token/ERC20/e
 contract SnorlieCoin is ERC20, ERC20Burnable, AccessControl, ERC20Permit {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
-    constructor() ERC20("SnorlieCoin", "SNORlIE") ERC20Permit("SnorlieCoin") {
+    constructor() ERC20("SnorlieCoin", "SNORLIE") ERC20Permit("SnorlieCoin") {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MINTER_ROLE, msg.sender);
     }
@@ -20,8 +20,6 @@ contract SnorlieCoin is ERC20, ERC20Burnable, AccessControl, ERC20Permit {
         require(newOwner != address(0), "New owner is the zero address");
         _grantRole(DEFAULT_ADMIN_ROLE, newOwner);
         _grantRole(MINTER_ROLE, newOwner);
-        _revokeRole(MINTER_ROLE, msg.sender);
-        _revokeRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     function totalSupply() public view override returns (uint256) {

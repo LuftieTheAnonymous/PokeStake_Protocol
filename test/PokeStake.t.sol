@@ -5,19 +5,19 @@ import {Test} from "../lib/forge-std/src/Test.sol";
 
 import {SnorlieCoin} from "../src/PokeCoin.sol";
 import {PokeCardCollection} from "../src/PokeCardCollection.sol";
-import {PokeCardGenerator} from "../src/PokeCardGenerator.sol";
 import {PokemonStakingPool} from "../src/staking/PokemonStakingPool.sol";
 import {RewardCalculator} from "../src/staking/RewardCalculator.sol";
 import {DeployContracts} from "../script/DeployContracts.s.sol";
-import {VRFMockCoordinator} from "../src/VRFMockCoordinator.sol";
+import {VRFMockCoordinator} from "../src/vrf/VRFMockCoordinator.sol";
+import {VRFConsumer} from "../src/vrf/VRFConsumer.sol";
 contract PokeStakeTest is Test {
     DeployContracts deployer;
     SnorlieCoin snorlieCoin;
     PokeCardCollection pokeCardCollection;
-    PokeCardGenerator pokeCardGenerator;
     PokemonStakingPool pokemonStakingPool;
     RewardCalculator rewardCalculator;
     VRFMockCoordinator vrfMockCoordinator;
+    VRFConsumer randomnessConsumer;
 
     address actor = makeAddr("actor");
 
@@ -27,48 +27,41 @@ uint256 forkId = vm.createFork("https://ethereum-sepolia-rpc.publicnode.com");
 
     vm.selectFork(forkId);
         deployer = new DeployContracts();
-        (snorlieCoin, pokeCardCollection, pokeCardGenerator, pokemonStakingPool, rewardCalculator, vrfMockCoordinator) = deployer.run();
-         
-
-
+        (snorlieCoin, pokeCardCollection, pokemonStakingPool, rewardCalculator,
+         vrfMockCoordinator, randomnessConsumer) = deployer.run();
 
         vm.deal(actor, 100 ether);
         vm.deal(address(vrfMockCoordinator), 1000000 ether);
         
-        vrfMockCoordinator.fundSubscription(pokeCardGenerator.getSubscriptionId(), 1000000 ether);
-
-
-
+        vrfMockCoordinator.fundSubscription(randomnessConsumer.getSubscriptionId(), 1000000 ether);
 }
 
 function testPokemonRandomGeneration() public {
     vm.startPrank(actor);
-    
     // Fund BEFORE requesting
-    vrfMockCoordinator.fundSubscription(pokeCardGenerator.getSubscriptionId(), 10 ether);
+    vrfMockCoordinator.fundSubscription(randomnessConsumer.getSubscriptionId(), 10 ether);
     
-    pokeCardGenerator.requestRandomWords();
+    randomnessConsumer.requestRandomWords();
     
-    vrfMockCoordinator.fulfillRandomWords(pokeCardGenerator.getRequestId(), address(pokeCardGenerator));
+    vrfMockCoordinator.fulfillRandomWords(randomnessConsumer.getRequestId(), address(randomnessConsumer));
 
-    uint256[] memory randomWords = pokeCardGenerator.getRandomWords();
+    uint256[] memory randomWords = randomnessConsumer.getRandomWords();
 
 vm.expectRevert();
-pokeCardGenerator.generatePokemon(13, 24, "https://");
+pokeCardCollection.generatePokemon(133, 23, "https://");
 
-    pokeCardGenerator.generatePokemon(randomWords[0], randomWords[1], "https://");
+    pokeCardCollection.generatePokemon(randomWords[0], randomWords[1], "https://");
 
     assert(randomWords.length != 0);
-    
-    pokeCardGenerator.requestRandomWords();
-    
-    vrfMockCoordinator.fulfillRandomWords(pokeCardGenerator.getRequestId(), address(pokeCardGenerator));
 
-    uint256[] memory randomWords2 = pokeCardGenerator.getRandomWords();
+     randomnessConsumer.requestRandomWords();
+    
+    vrfMockCoordinator.fulfillRandomWords(randomnessConsumer.getRequestId(), address(randomnessConsumer));
+
+    uint256[] memory randomWords2 = randomnessConsumer.getRandomWords();
 
     vm.expectRevert();
-    pokeCardGenerator.generatePokemon(randomWords2[0], randomWords2[1], "https://");
-    
+    pokeCardCollection.generatePokemon(randomWords2[0], randomWords2[1], "https://");
     vm.stopPrank();
 }
 

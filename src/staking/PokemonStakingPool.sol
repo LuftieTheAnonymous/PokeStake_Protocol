@@ -4,8 +4,6 @@ pragma solidity ^0.8.27;
 import {SnorlieCoin} from "../PokeCoin.sol";
 import {PokeCardCollection} from "../PokeCardCollection.sol";
 
-import {PokeCardGenerator} from "../PokeCardGenerator.sol";
-
 import {RewardCalculator} from "./RewardCalculator.sol";
 import {ReentrancyGuard} from "../../lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
@@ -32,12 +30,10 @@ contract PokemonStakingPool is ReentrancyGuard {
     SnorlieCoin private immutable rewardToken;
     PokeCardCollection private immutable nftCollection;
     RewardCalculator private immutable rewardCalculator;
-    PokeCardGenerator private immutable pokeCardGenerator;
 
-    constructor(address rewardToken_, address nftCollection_, address pokeCardGenerator_, address _rewardCalculator) {
+    constructor(address rewardToken_, address nftCollection_, address _rewardCalculator) {
         rewardToken = SnorlieCoin(rewardToken_);
         nftCollection = PokeCardCollection(nftCollection_);
-        pokeCardGenerator = PokeCardGenerator(pokeCardGenerator_);
         rewardCalculator = RewardCalculator(_rewardCalculator);
     }
 
@@ -68,7 +64,7 @@ contract PokemonStakingPool is ReentrancyGuard {
         nftCollection.safeTransferFrom(msg.sender, address(this), tokenId);
 
         // Determine the rarity level of the staked Pokemon (this is a placeholder, you would need to implement your own logic to determine rarity)
-        uint256 pokemonRarityLevel = uint256(pokeCardGenerator.getGeneratedCardByNftId(msg.sender, tokenId).rarityLevel);
+        uint256 pokemonRarityLevel = uint256(nftCollection.getGeneratedCardByNftId(msg.sender, tokenId).rarityLevel);
 
         // Record the staking position
         stakedNfts[msg.sender].push(
