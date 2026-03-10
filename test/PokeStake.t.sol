@@ -36,8 +36,8 @@ uint256 forkId = vm.createFork("https://ethereum-sepolia-rpc.publicnode.com");
         vrfMockCoordinator.fundSubscription(randomnessConsumer.getSubscriptionId(), 1000000 ether);
 }
 
-function testPokemonRandomGeneration() public {
-    vm.startPrank(actor);
+function randomnessRequestAndFulfillment() public {
+       vm.startPrank(actor);
     // Fund BEFORE requesting
     vrfMockCoordinator.fundSubscription(randomnessConsumer.getSubscriptionId(), 10 ether);
     
@@ -54,6 +54,9 @@ pokeCardCollection.generatePokemon(133, 23, "https://");
 
     assert(randomWords.length != 0);
 
+    vm.expectRevert();
+    pokeCardCollection.generatePokemon(randomWords[0], randomWords[1], "https://");
+
      randomnessConsumer.requestRandomWords();
     
     vrfMockCoordinator.fulfillRandomWords(randomnessConsumer.getRequestId(), address(randomnessConsumer));
@@ -64,6 +67,33 @@ pokeCardCollection.generatePokemon(133, 23, "https://");
     pokeCardCollection.generatePokemon(randomWords2[0], randomWords2[1], "https://");
     vm.stopPrank();
 }
+
+function testPokemonRandomGeneration() public {
+    randomnessRequestAndFulfillment();
+}
+
+
+function testSnorlieCoin() public {
+    snorlieCoin.totalSupply();
+}
+
+function testStaking() public {
+randomnessRequestAndFulfillment();
+
+assert(pokeCardCollection.totalSupply() > 0);
+assert(pokeCardCollection.getGeneratedCards(actor).length > 0);
+assert(pokeCardCollection.ownerOf(0) == actor);
+
+    vm.startPrank(actor);
+    pokeCardCollection.approve(address(pokemonStakingPool), 0);
+    pokemonStakingPool.stake(0);
+    vm.roll(block.number + 7200);
+    pokemonStakingPool.unstake(0);
+    pokemonStakingPool.claimRewards();
+    vm.stopPrank();
+
+    assert(snorlieCoin.balanceOf(actor) > 0);
+    }
 
 
 

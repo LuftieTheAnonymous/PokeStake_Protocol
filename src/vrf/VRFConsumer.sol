@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-
+import {ReentrancyGuard} from "../../lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {
     VRFConsumerBaseV2Plus
 } from "../../lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
@@ -13,11 +12,6 @@ import {
 
 contract VRFConsumer is VRFConsumerBaseV2Plus, ReentrancyGuard {
   // Your subscription ID.
-
-  // user address -> block number of last call to requestRandomWords
-  mapping(address => uint256) private callsToRandomness;
-
-  uint256 private constant REQUEST_INTERVAL_IN_BLOCKS = 7200; // 24 hours assuming 12s block time
 
   uint256 immutable s_subscriptionId;
 
@@ -44,14 +38,6 @@ contract VRFConsumer is VRFConsumerBaseV2Plus, ReentrancyGuard {
   uint256[] public s_randomWords;
   uint256 public s_requestId;
 
-  modifier requestInterval() {
-    if (block.number < callsToRandomness[msg.sender] + REQUEST_INTERVAL_IN_BLOCKS) {
-      revert("Request interval not met");
-    }
-    _;
-    callsToRandomness[msg.sender] = block.number;
-  }
-
   event ReturnedRandomness(uint256[] randomWords);
 
   /**
@@ -70,7 +56,7 @@ contract VRFConsumer is VRFConsumerBaseV2Plus, ReentrancyGuard {
     s_subscriptionId = subscriptionId;
   }
 
-  function requestRandomWords() external nonReentrant requestInterval {
+  function requestRandomWords() external  {
     // Will revert if subscription is not set and funded.
     s_requestId = s_vrfCoordinator.requestRandomWords(
       VRFV2PlusClient.RandomWordsRequest({
@@ -82,8 +68,6 @@ contract VRFConsumer is VRFConsumerBaseV2Plus, ReentrancyGuard {
         extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
       })
     );
-
-    callsToRandomness[msg.sender] = block.number;
     
   }
 

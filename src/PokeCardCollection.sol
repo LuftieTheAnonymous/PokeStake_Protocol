@@ -39,6 +39,8 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
     bytes32 private constant CONTROLLER_ROLE = keccak256("CONTROLLER_ROLE");
     mapping(address => PokemonCard[]) private generatedCards;
     mapping(address => mapping(uint256 => PokemonCard)) private generatedCardsByNftId;
+
+    mapping(uint256 => uint256) private randomnessRequestIdToNftId;
     mapping(address => uint256) private totalCardsGenerated;
     mapping(address => uint256) private lastTimeGenerated;
 
@@ -54,6 +56,13 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
     modifier generationCooldown() {
         if (block.number < lastTimeGenerated[msg.sender] + generationCooldownInBlock) {
             revert GenerationCooldownNotReached();
+        }
+        _;
+    }
+
+    modifier noExistingCardForRandomnessRequest(uint256 requestId) {
+        if (randomnessRequestIdToNftId[requestId] != 0) {
+            revert("No NFT associated with this randomness request");
         }
         _;
     }
@@ -125,6 +134,10 @@ function setPokemonAmountToGenerate(uint256 amount) external onlyController {
         return tokenId;
     }
 
+    function safeTransfer(address to, uint256 tokenId) public {
+        super._safeTransfer(msg.sender, to, tokenId, "");
+    }
+
     function burn(uint256 tokenId) public override onlyCardOwner(tokenId) {
         super.burn(tokenId);
         delete generatedCardsByNftId[msg.sender][tokenId];
@@ -132,6 +145,7 @@ function setPokemonAmountToGenerate(uint256 amount) external onlyController {
 
     function generatePokemon(uint256 firstNumber, uint256 secondNumber, string memory token_uri) external
         generationCooldown
+        noExistingCardForRandomnessRequest(vrfConsumer.getRequestId())
         nonReentrant
         areProvidedNumbersValid(firstNumber, secondNumber)
     {
@@ -144,6 +158,7 @@ function setPokemonAmountToGenerate(uint256 amount) external onlyController {
         generatedCardsByNftId[msg.sender][pokemonCardNftID] = newCard;
         totalCardsGenerated[msg.sender]++;
         lastTimeGenerated[msg.sender] = block.number;
+        randomnessRequestIdToNftId[vrfConsumer.getRequestId()] = pokemonCardNftID;
 
         emit PokemonCardGenerated(msg.sender, pokemonCardNftID, pokedexId);
     }

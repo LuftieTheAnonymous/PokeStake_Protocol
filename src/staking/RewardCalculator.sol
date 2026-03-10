@@ -13,7 +13,7 @@ contract RewardCalculator {
     uint256 private constant rewardPerOneDayOfStake = 1 ether;
     PokemonStakingPool pokemonStakingPool;
 
-    constructor(address pokemonStakingPoolAddress) {
+    constructor(address payable pokemonStakingPoolAddress) {
         pokemonStakingPool = PokemonStakingPool(pokemonStakingPoolAddress);
     }
 

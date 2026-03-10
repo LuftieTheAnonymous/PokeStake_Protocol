@@ -59,9 +59,13 @@ contract PokemonStakingPool is ReentrancyGuard {
         _;
     }
 
+    receive() external payable {
+    }
+
+
     function stake(uint256 tokenId) external onlyNftOwner(tokenId) nonReentrant {
         // Transfer the NFT to the staking contract
-        nftCollection.safeTransferFrom(msg.sender, address(this), tokenId);
+        nftCollection.safeTransfer(address(this), tokenId);
 
         // Determine the rarity level of the staked Pokemon (this is a placeholder, you would need to implement your own logic to determine rarity)
         uint256 pokemonRarityLevel = uint256(nftCollection.getGeneratedCardByNftId(msg.sender, tokenId).rarityLevel);

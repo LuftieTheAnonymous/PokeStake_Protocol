@@ -34,7 +34,7 @@ contract DeployContracts is Script {
         pokeCardCollection = new PokeCardCollection(address(randomnessConsumer));
       
 
-        rewardCalculator = new RewardCalculator(address(pokemonStakingPool));
+        rewardCalculator = new RewardCalculator(payable(pokemonStakingPool));
 
         pokemonStakingPool = new PokemonStakingPool(
             address(snorlieCoin), address(pokeCardCollection), address(rewardCalculator)
