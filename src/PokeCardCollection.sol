@@ -10,7 +10,6 @@ import {ReentrancyGuard} from "../lib/openzeppelin-contracts/contracts/utils/Ree
 import {VRFConsumer} from "./vrf/VRFConsumer.sol";
 
 contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, ReentrancyGuard, AccessControl {
-    
     error RandomWordsNotAvailable();
     error GenerationCooldownNotReached();
     error NotMinter();
@@ -31,7 +30,6 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
         uint256 nftId;
         string tokenURI;
     }
-
 
     uint256 private pokemonAmountToGenerate = 151;
     uint256 private constant rarityLevels = 4;
@@ -81,7 +79,6 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
         _;
     }
 
-
     modifier areProvidedNumbersValid(uint256 firstNumber, uint256 secondNumber) {
         uint256[] memory randomWords = vrfConsumer.getRandomWords();
         if (randomWords.length == 0) {
@@ -93,11 +90,9 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
         _;
     }
 
-
-function setPokemonAmountToGenerate(uint256 amount) external onlyController {
+    function setPokemonAmountToGenerate(uint256 amount) external onlyController {
         pokemonAmountToGenerate = amount;
     }
-
 
     function mint(address to, string memory uri) internal returns (uint256) {
         uint256 tokenId = _nextTokenId++;
@@ -115,7 +110,8 @@ function setPokemonAmountToGenerate(uint256 amount) external onlyController {
         delete generatedCardsByNftId[msg.sender][tokenId];
     }
 
-    function generatePokemon(uint256 firstNumber, uint256 secondNumber, string memory token_uri) external
+    function generatePokemon(uint256 firstNumber, uint256 secondNumber, string memory token_uri)
+        external
         generationCooldown
         noExistingCardForRandomnessRequest(vrfConsumer.getRequestId())
         nonReentrant
@@ -135,7 +131,6 @@ function setPokemonAmountToGenerate(uint256 amount) external onlyController {
         emit PokemonCardGenerated(msg.sender, pokemonCardNftID, pokedexId);
     }
 
-
     // The following functions are overrides required by Solidity.
 
     function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory) {
@@ -151,7 +146,7 @@ function setPokemonAmountToGenerate(uint256 amount) external onlyController {
         return super.supportsInterface(interfaceId);
     }
 
-        function getGeneratedCards(address user) external view returns (PokemonCard[] memory) {
+    function getGeneratedCards(address user) external view returns (PokemonCard[] memory) {
         return generatedCards[user];
     }
 
@@ -178,7 +173,4 @@ function setPokemonAmountToGenerate(uint256 amount) external onlyController {
         }
         return randomWords;
     }
-
-
-
 }

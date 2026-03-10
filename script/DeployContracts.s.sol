@@ -16,16 +16,16 @@ contract DeployContracts is Script {
     PokemonStakingPool pokemonStakingPool;
     VRFMockCoordinator vrfMockCoordinator;
     VRFConsumer randomnessConsumer;
-    bytes32 keyHash = 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
+    // bytes32 keyHash = 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae; TEST
 
-    function run() public returns (SnorlieCoin, PokeCardCollection, PokemonStakingPool,
-     VRFMockCoordinator, VRFConsumer) {
+    function run() public returns (SnorlieCoin, PokeCardCollection, PokemonStakingPool, VRFConsumer) {
         vm.startBroadcast();
-        vrfMockCoordinator = new VRFMockCoordinator(100000000000000000, 1000000000, 4e15);
+        // vrfMockCoordinator = new VRFMockCoordinator(100000000000000000, 1000000000, 4e15); Test
 
         // CREATE YOUR OWN SUBSCRIPTION
-        uint256 subscriptionId = vrfMockCoordinator.createSubscription();
-        randomnessConsumer = new VRFConsumer(subscriptionId, address(vrfMockCoordinator), keyHash);
+        // uint256 subscriptionId = vrfMockCoordinator.createSubscription();
+        randomnessConsumer = new VRFConsumer(vm.envUint("SUBSCRIPTION_ID_SEPOLIA"), 
+        vm.envAddress("COORDINATOR_SEPOLIA"), bytes32(vm.envBytes("KEYHASH_SEPOLIA")));
 
         snorlieCoin = new SnorlieCoin();
         pokeCardCollection = new PokeCardCollection(address(randomnessConsumer));
@@ -35,11 +35,11 @@ contract DeployContracts is Script {
         );
 
     // ADD CONSUMER TO YOUR SUBSCRIPTION
-        vrfMockCoordinator.addConsumer(subscriptionId, address(randomnessConsumer));
+        // vrfMockCoordinator.addConsumer(vm.envUint("SUBSCRIPTION_ID_SEPOLIA"), address(randomnessConsumer));
 
         snorlieCoin.transferOwnership(address(pokemonStakingPool));
 
-        vrfMockCoordinator.transferOwnership(address(pokeCardCollection));
+        // vrfMockCoordinator.transferOwnership(address(pokeCardCollection));
 
         vm.stopBroadcast();
 
@@ -47,7 +47,6 @@ contract DeployContracts is Script {
             snorlieCoin,
             pokeCardCollection,
             pokemonStakingPool,
-            vrfMockCoordinator,
             randomnessConsumer
         );
     }

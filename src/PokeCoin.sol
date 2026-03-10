@@ -15,7 +15,6 @@ contract SnorlieCoin is ERC20, ERC20Burnable, AccessControl, ERC20Permit {
         _grantRole(MINTER_ROLE, msg.sender);
     }
 
-
     function transferOwnership(address newOwner) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newOwner != address(0), "New owner is the zero address");
         _grantRole(DEFAULT_ADMIN_ROLE, newOwner);

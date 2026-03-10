@@ -16,8 +16,6 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
 
     uint256 private constant rewardPerOneDayOfStake = 1 ether;
 
-    
-
     error NotTheOwnerOfTheNFT();
     error MinimumBlocksToUnstakeNotReached();
     error NeedToClaimRewardsFirst();
@@ -68,25 +66,21 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
         _;
     }
 
-
-    modifier hasClaimedRewards(){
+    modifier hasClaimedRewards() {
         uint256 amountToClaim = getRewardAmount();
-        if(amountToClaim > 0){
+        if (amountToClaim > 0) {
             revert NeedToClaimRewardsFirst();
         }
         _;
     }
 
-
-   function onERC721Received(
-    address operator,
-    address from,
-    uint256 tokenId,
-    bytes calldata data
-) external override returns (bytes4) {
-      // Determine the rarity level of the staked Pokemon (this is a placeholder, you would need to implement your own logic to determine rarity)
+    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data)
+        external
+        override
+        returns (bytes4)
+    {
+        // Determine the rarity level of the staked Pokemon (this is a placeholder, you would need to implement your own logic to determine rarity)
         uint256 pokemonRarityLevel = uint256(nftCollection.getGeneratedCardByNftId(from, tokenId).rarityLevel);
-        
 
         // Record the staking position
         stakedNfts[from].push(
@@ -96,13 +90,13 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
                 stakedAtBlock: block.number
             })
         );
-    
-     emit Staked(from, tokenId, pokemonRarityLevel, block.number);
-    
-    return IERC721Receiver.onERC721Received.selector;
-}
 
-  function getStakedPositions(address user) public view returns (PokeStakePosition[] memory) {
+        emit Staked(from, tokenId, pokemonRarityLevel, block.number);
+
+        return IERC721Receiver.onERC721Received.selector;
+    }
+
+    function getStakedPositions(address user) public view returns (PokeStakePosition[] memory) {
         return stakedNfts[user];
     }
 
@@ -113,7 +107,7 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
 
     function unstake(uint256 tokenId) external minimumBlocksToUnstakeReached(tokenId) nonReentrant hasClaimedRewards {
         // Find the staking position and remove it
-        
+
         PokeStakePosition[] storage stakedPositions = stakedNfts[msg.sender];
         for (uint256 i = 0; i < stakedPositions.length; i++) {
             if (stakedPositions[i].nftId == tokenId) {
@@ -129,23 +123,20 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
         emit Unstaked(msg.sender, tokenId);
     }
 
-
-
     function calculateRewards(address user) public view returns (uint256) {
         PokemonStakingPool.PokeStakePosition[] memory stakedPositions = getStakedPositions(user);
         uint256 totalRewards = 0;
         for (uint256 i = 0; i < stakedPositions.length; i++) {
-          uint256 blocksDifference = block.number - stakedPositions[i].stakedAtBlock;
-          uint256 stakedDurationInSeconds = blocksDifference * 12; // 12 seconds per block
+            uint256 blocksDifference = block.number - stakedPositions[i].stakedAtBlock;
+            uint256 stakedDurationInSeconds = blocksDifference * 12; // 12 seconds per block
 
-          uint256 stakedDurationInDaysWad = (stakedDurationInSeconds * 1e18) / 86400;
-        
+            uint256 stakedDurationInDaysWad = (stakedDurationInSeconds * 1e18) / 86400;
 
-          if (stakedDurationInDaysWad == 0) {
-            continue; // Skip this position
-        }
-        uint256 rarityMultiplier = stakedPositions[i].pokemonRarityLevel;
-        uint256 positionRewards = (stakedDurationInDaysWad * rewardPerOneDayOfStake * rarityMultiplier) / 1e18;
+            if (stakedDurationInDaysWad == 0) {
+                continue; // Skip this position
+            }
+            uint256 rarityMultiplier = stakedPositions[i].pokemonRarityLevel;
+            uint256 positionRewards = (stakedDurationInDaysWad * rewardPerOneDayOfStake * rarityMultiplier) / 1e18;
 
             totalRewards += positionRewards;
         }
@@ -158,13 +149,12 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
         for (uint256 i = 0; i < stakedPositions.length; i++) {
             uint256 rarityMultiplier = stakedPositions[i].pokemonRarityLevel;
 
-             uint256 apyForPosition = rewardPerOneDayOfStake * rarityMultiplier *  365;
-          
+            uint256 apyForPosition = rewardPerOneDayOfStake * rarityMultiplier * 365;
+
             totalAPY += apyForPosition; // Assuming 365 days in a year
         }
         return totalAPY;
     }
-
 
     function claimRewards() public nonReentrant {
         uint256 rewardsToClaim = getRewardAmount();
@@ -180,5 +170,4 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
         // You can return this value or emit an event, depending on your needs
         return rewardsToClaim;
     }
-
 }
