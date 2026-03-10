@@ -40,7 +40,6 @@ contract DeployContracts is Script {
 
         snorlieCoin.transferOwnership(address(pokemonStakingPool));
 
-        // ADD CONSUMER TO YOUR SUBSCRIPTION
         vrfMockCoordinator.addConsumer(subscriptionId, address(pokeCardGenerator));
 
         pokeCardCollection.transferOwnership(address(pokeCardGenerator));

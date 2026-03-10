@@ -75,6 +75,7 @@ contract PokeCardGenerator is ReentrancyGuard, AccessControl, VRFConsumerBaseV2P
     {
         s_keyHash = keyHash;
         s_subscriptionId = subscriptionId;
+     pokeCardCollection = PokeCardCollection(pokeCardCollectionAddress);
         _grantRole(ADMIN_ROLE, msg.sender);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
@@ -140,8 +141,6 @@ function transferAdminRole(address newAdmin) public onlyRole(ADMIN_ROLE) {
     }
 
 
-
-
     modifier generationCooldown() {
         if (block.number < lastTimeGenerated[msg.sender] + generationCooldownInBlock) {
             revert GenerationCooldownNotReached();
@@ -163,8 +162,7 @@ function transferAdminRole(address newAdmin) public onlyRole(ADMIN_ROLE) {
 
   
 
-    function generatePokemon(uint256 randomFirst, uint256 randomSecond, string memory tokenURI)
-        external
+    function generatePokemon(uint256 randomFirst, uint256 randomSecond, string memory tokenURI) external
         generationCooldown
         nonReentrant
     {
