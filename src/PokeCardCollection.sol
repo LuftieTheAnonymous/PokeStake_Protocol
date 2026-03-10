@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {AccessControl} from "../lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
-import {ERC721} from "../lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
+import {ERC721, IERC721} from "../lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 import {ERC721Burnable} from "../lib/openzeppelin-contracts/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import {ERC721URIStorage} from "../lib/openzeppelin-contracts/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 
@@ -136,6 +136,10 @@ function setPokemonAmountToGenerate(uint256 amount) external onlyController {
 
     function safeTransfer(address to, uint256 tokenId) public {
         super._safeTransfer(msg.sender, to, tokenId, "");
+    }
+
+    function safeTransferFrom(address from, address to, uint256 tokenId) public override(ERC721, IERC721) {
+        super.safeTransferFrom(from, to, tokenId);
     }
 
     function burn(uint256 tokenId) public override onlyCardOwner(tokenId) {

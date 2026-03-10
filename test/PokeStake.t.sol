@@ -6,7 +6,6 @@ import {Test} from "../lib/forge-std/src/Test.sol";
 import {SnorlieCoin} from "../src/PokeCoin.sol";
 import {PokeCardCollection} from "../src/PokeCardCollection.sol";
 import {PokemonStakingPool} from "../src/staking/PokemonStakingPool.sol";
-import {RewardCalculator} from "../src/staking/RewardCalculator.sol";
 import {DeployContracts} from "../script/DeployContracts.s.sol";
 import {VRFMockCoordinator} from "../src/vrf/VRFMockCoordinator.sol";
 import {VRFConsumer} from "../src/vrf/VRFConsumer.sol";
@@ -15,7 +14,6 @@ contract PokeStakeTest is Test {
     SnorlieCoin snorlieCoin;
     PokeCardCollection pokeCardCollection;
     PokemonStakingPool pokemonStakingPool;
-    RewardCalculator rewardCalculator;
     VRFMockCoordinator vrfMockCoordinator;
     VRFConsumer randomnessConsumer;
 
@@ -27,7 +25,7 @@ uint256 forkId = vm.createFork("https://ethereum-sepolia-rpc.publicnode.com");
 
     vm.selectFork(forkId);
         deployer = new DeployContracts();
-        (snorlieCoin, pokeCardCollection, pokemonStakingPool, rewardCalculator,
+        (snorlieCoin, pokeCardCollection, pokemonStakingPool,
          vrfMockCoordinator, randomnessConsumer) = deployer.run();
 
         vm.deal(actor, 100 ether);
@@ -73,26 +71,34 @@ function testPokemonRandomGeneration() public {
 }
 
 
-function testSnorlieCoin() public {
-    snorlieCoin.totalSupply();
-}
-
 function testStaking() public {
-randomnessRequestAndFulfillment();
+
+    vm.startPrank(actor);
+
+ vrfMockCoordinator.fundSubscription(randomnessConsumer.getSubscriptionId(), 10 ether);
+    
+    randomnessConsumer.requestRandomWords();
+    
+    vrfMockCoordinator.fulfillRandomWords(randomnessConsumer.getRequestId(), address(randomnessConsumer));
+
+    uint256[] memory randomWords = randomnessConsumer.getRandomWords();
+
+    pokeCardCollection.generatePokemon(randomWords[0], randomWords[1], "https://");
 
 assert(pokeCardCollection.totalSupply() > 0);
 assert(pokeCardCollection.getGeneratedCards(actor).length > 0);
 assert(pokeCardCollection.ownerOf(0) == actor);
-
-    vm.startPrank(actor);
-    pokeCardCollection.approve(address(pokemonStakingPool), 0);
+pokeCardCollection.approve(address(pokemonStakingPool), 0);
     pokemonStakingPool.stake(0);
-    vm.roll(block.number + 7200);
+    vm.roll(block.number + 7200); // Simulate time passing (assuming 12s block time, this is roughly 1 day)
     pokemonStakingPool.unstake(0);
+  pokemonStakingPool.getRewardAmount();
     pokemonStakingPool.claimRewards();
+    
+    assert(snorlieCoin.balanceOf(actor) > 0);
     vm.stopPrank();
 
-    assert(snorlieCoin.balanceOf(actor) > 0);
+
     }
 
 
