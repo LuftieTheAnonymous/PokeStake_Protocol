@@ -84,22 +84,69 @@ function testStaking() public {
     uint256[] memory randomWords = randomnessConsumer.getRandomWords();
 
     pokeCardCollection.generatePokemon(randomWords[0], randomWords[1], "https://");
+    vm.expectRevert();
+    pokeCardCollection.generatePokemon(randomWords[0], randomWords[1], "https://");
 
 assert(pokeCardCollection.totalSupply() > 0);
 assert(pokeCardCollection.getGeneratedCards(actor).length > 0);
 assert(pokeCardCollection.ownerOf(0) == actor);
+
+pokeCardCollection.getLastTimeGenerated(actor);
+pokeCardCollection.getTotalCardsGenerated(actor);
+pokeCardCollection.getGeneratedCards(actor);
+
+pokeCardCollection.supportsInterface(bytes4("How"));
+
 pokeCardCollection.approve(address(pokemonStakingPool), 0);
     pokemonStakingPool.stake(0);
-    vm.roll(block.number + 7200); // Simulate time passing (assuming 12s block time, this is roughly 1 day)
-    pokemonStakingPool.unstake(0);
-  pokemonStakingPool.getRewardAmount();
-    pokemonStakingPool.claimRewards();
+
+    vm.expectRevert();
+    pokemonStakingPool.stake(0);
     
+    vm.expectRevert();
+   pokemonStakingPool.unstake(0);
+
+vm.roll(block.number + 72000); // Simulate time passing (assuming 12s block time, this is roughly 1 day)    
+     for(uint256 i = 0; i > 2; i++){
+    vm.expectRevert();
+        pokemonStakingPool.claimRewards();
+    }
+
+    pokemonStakingPool.claimRewards();
+
+
+    
+    for(uint256 i = 0; i > 2; i++){
+    vm.expectRevert();
+        pokemonStakingPool.unstake(0);
+    }
+
+
+    pokemonStakingPool.unstake(0);
+
     assert(snorlieCoin.balanceOf(actor) > 0);
+    snorlieCoin.burn(snorlieCoin.balanceOf(actor));
+
+    vm.expectRevert();
+    pokeCardCollection.setPokemonAmountToGenerate(156);
     vm.stopPrank();
 
+vm.expectRevert();
+pokeCardCollection.burn(0);
+}
 
-    }
+
+function testDumbCases() public{
+    vm.startPrank(actor);
+    vm.expectRevert();
+snorlieCoin.mint(msg.sender, 12e18);
+vm.expectRevert();
+snorlieCoin.burn(100e18);
+
+
+    vm.stopPrank();
+}
+
 
 
 

@@ -94,34 +94,6 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
     }
 
 
-    function getGeneratedCards(address user) external view returns (PokemonCard[] memory) {
-        return generatedCards[user];
-    }
-
-    function getTotalCardsGenerated(address user) external view returns (uint256) {
-        return totalCardsGenerated[user];
-    }
-
-    function getLastTimeGenerated(address user) external view returns (uint256) {
-        return lastTimeGenerated[user];
-    }
-
-    function getGeneratedCardByNftId(address user, uint256 nftId) external view returns (PokemonCard memory) {
-        return generatedCardsByNftId[user][nftId];
-    }
-
-    function totalSupply() public view returns (uint256) {
-        return _nextTokenId;
-    }
-
-    function getRandomWords() public view returns (uint256[] memory) {
-        uint256[] memory randomWords = vrfConsumer.getRandomWords();
-        if (randomWords.length == 0) {
-            revert RandomWordsNotAvailable();
-        }
-        return randomWords;
-    }
-
 function setPokemonAmountToGenerate(uint256 amount) external onlyController {
         pokemonAmountToGenerate = amount;
     }
@@ -132,10 +104,6 @@ function setPokemonAmountToGenerate(uint256 amount) external onlyController {
         super._mint(to, tokenId);
         super._setTokenURI(tokenId, uri);
         return tokenId;
-    }
-
-    function safeTransfer(address to, uint256 tokenId) public {
-        super._safeTransfer(msg.sender, to, tokenId, "");
     }
 
     function safeTransferFrom(address from, address to, uint256 tokenId) public override(ERC721, IERC721) {
@@ -181,6 +149,34 @@ function setPokemonAmountToGenerate(uint256 amount) external onlyController {
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
+    }
+
+        function getGeneratedCards(address user) external view returns (PokemonCard[] memory) {
+        return generatedCards[user];
+    }
+
+    function getTotalCardsGenerated(address user) external view returns (uint256) {
+        return totalCardsGenerated[user];
+    }
+
+    function getLastTimeGenerated(address user) external view returns (uint256) {
+        return lastTimeGenerated[user];
+    }
+
+    function getGeneratedCardByNftId(address user, uint256 nftId) external view returns (PokemonCard memory) {
+        return generatedCardsByNftId[user][nftId];
+    }
+
+    function totalSupply() public view returns (uint256) {
+        return _nextTokenId;
+    }
+
+    function getRandomWords() public view returns (uint256[] memory) {
+        uint256[] memory randomWords = vrfConsumer.getRandomWords();
+        if (randomWords.length == 0) {
+            revert RandomWordsNotAvailable();
+        }
+        return randomWords;
     }
 
 
