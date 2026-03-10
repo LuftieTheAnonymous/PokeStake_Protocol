@@ -7,6 +7,5 @@ import {
 
 contract VRFMockCoordinator is VRFCoordinatorV2_5Mock {
     constructor(uint96 _baseFee, uint96 _gasPriceLink, int256 _weiPerUnitLink)
-        VRFCoordinatorV2_5Mock(_baseFee, _gasPriceLink, _weiPerUnitLink)
-    {}
+        VRFCoordinatorV2_5Mock(_baseFee, _gasPriceLink, _weiPerUnitLink){}
 }

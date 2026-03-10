@@ -10,10 +10,20 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, AccessC
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     uint256 private _nextTokenId;
 
-    constructor(address defaultAdmin, address minter) ERC721("PokeCard", "PIKA") {
-        _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
-        _grantRole(MINTER_ROLE, minter);
+    constructor() ERC721("PokeCard", "PIKA") {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(MINTER_ROLE, msg.sender);
     }
+
+
+    function transferOwnership(address newOwner) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newOwner != address(0), "New owner is the zero address");
+        _grantRole(MINTER_ROLE, newOwner);
+        _grantRole(DEFAULT_ADMIN_ROLE, newOwner);
+        _revokeRole(MINTER_ROLE, msg.sender);
+        _revokeRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
+
 
     function safeMint(address to, string memory uri) public onlyRole(MINTER_ROLE) returns (uint256) {
         uint256 tokenId = _nextTokenId++;
