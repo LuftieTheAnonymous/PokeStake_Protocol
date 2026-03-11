@@ -42,26 +42,22 @@ contract PokeStakeTest is Test {
 
         vrfMockCoordinator.fulfillRandomWords(randomnessConsumer.getRequestId(), address(randomnessConsumer));
 
-        uint256[] memory randomWords = randomnessConsumer.getRandomWords();
-
         vm.expectRevert();
-        pokeCardCollection.generatePokemon(133, 23, "https://");
+        pokeCardCollection.generatePokemon(4, "https://");
 
-        pokeCardCollection.generatePokemon(randomWords[0], randomWords[1], "https://");
-
-        assert(randomWords.length != 0);
-
-        vm.expectRevert();
-        pokeCardCollection.generatePokemon(randomWords[0], randomWords[1], "https://");
+        pokeCardCollection.generatePokemon(randomnessConsumer.getRequestId(), "https://");
 
         randomnessConsumer.requestRandomWords();
 
         vrfMockCoordinator.fulfillRandomWords(randomnessConsumer.getRequestId(), address(randomnessConsumer));
 
-        uint256[] memory randomWords2 = randomnessConsumer.getRandomWords();
-
+uint256 requestId = randomnessConsumer.getRequestId();
         vm.expectRevert();
-        pokeCardCollection.generatePokemon(randomWords2[0], randomWords2[1], "https://");
+        pokeCardCollection.generatePokemon(requestId - 1, "https://");
+
+        vm.roll(block.number + 10000);
+        vm.expectRevert();
+        pokeCardCollection.generatePokemon(requestId - 1, "https://");
         vm.stopPrank();
     }
 
@@ -78,11 +74,30 @@ contract PokeStakeTest is Test {
 
         vrfMockCoordinator.fulfillRandomWords(randomnessConsumer.getRequestId(), address(randomnessConsumer));
 
-        uint256[] memory randomWords = randomnessConsumer.getRandomWords();
 
-        pokeCardCollection.generatePokemon(randomWords[0], randomWords[1], "https://");
+uint256 firstRequestId = randomnessConsumer.getRequestId();
+
+        pokeCardCollection.generatePokemon(firstRequestId, "https://");
         vm.expectRevert();
-        pokeCardCollection.generatePokemon(randomWords[0], randomWords[1], "https://");
+        pokeCardCollection.generatePokemon(firstRequestId - 1, "https://");
+        
+        vm.expectRevert();
+        randomnessConsumer.getRequestData(firstRequestId + 1, actor);
+        
+        vm.expectRevert();
+        randomnessConsumer.getRequestData(firstRequestId, actor);
+
+        vm.expectRevert();
+        randomnessConsumer.updateRequest(firstRequestId, actor);
+       
+        vm.expectRevert();
+        randomnessConsumer.updateRequest(firstRequestId + 1, actor);
+
+        vm.expectRevert();
+        pokeCardCollection.getRandomValuesConverted(firstRequestId - 1);
+
+        vm.expectRevert();
+        pokeCardCollection.getRandomValuesConverted(firstRequestId);
 
         assert(pokeCardCollection.totalSupply() > 0);
         assert(pokeCardCollection.getGeneratedCards(actor).length > 0);

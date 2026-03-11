@@ -15,6 +15,8 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
     error NotMinter();
     error NotOwner();
 
+    error ResolvedRequest(uint256 requestId);
+
     event PokemonCardGenerated(address indexed user, uint256 indexed nftId, uint256 pokedexId);
 
     enum PokemonRarityLevel {
@@ -37,10 +39,9 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
     bytes32 private constant CONTROLLER_ROLE = keccak256("CONTROLLER_ROLE");
     mapping(address => PokemonCard[]) private generatedCards;
     mapping(address => mapping(uint256 => PokemonCard)) private generatedCardsByNftId;
-
-    mapping(uint256 => uint256) private randomnessRequestIdToNftId;
     mapping(address => uint256) private totalCardsGenerated;
     mapping(address => uint256) private lastTimeGenerated;
+
 
     VRFConsumer private vrfConsumer;
 
@@ -54,13 +55,6 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
     modifier generationCooldown() {
         if (block.number < lastTimeGenerated[msg.sender] + generationCooldownInBlock) {
             revert GenerationCooldownNotReached();
-        }
-        _;
-    }
-
-    modifier noExistingCardForRandomnessRequest(uint256 requestId) {
-        if (randomnessRequestIdToNftId[requestId] != 0) {
-            revert("No NFT associated with this randomness request");
         }
         _;
     }
@@ -79,16 +73,7 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
         _;
     }
 
-    modifier areProvidedNumbersValid(uint256 firstNumber, uint256 secondNumber) {
-        uint256[] memory randomWords = vrfConsumer.getRandomWords();
-        if (randomWords.length == 0) {
-            revert RandomWordsNotAvailable();
-        }
-        if (firstNumber != randomWords[0] || secondNumber != randomWords[1]) {
-            revert("Provided numbers do not match the random words");
-        }
-        _;
-    }
+ 
 
     function setPokemonAmountToGenerate(uint256 amount) external onlyController {
         pokemonAmountToGenerate = amount;
@@ -103,6 +88,21 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
 
     function safeTransferFrom(address from, address to, uint256 tokenId) public override(ERC721, IERC721) {
         super.safeTransferFrom(from, to, tokenId);
+        
+        for (uint256 i = 0; i < generatedCards[from].length; i++) {
+        PokemonCard memory lastPokeCard = generatedCards[from][generatedCards[from].length - 1];
+        PokemonCard memory currentPokeCard = generatedCards[from][i];
+
+          if(currentPokeCard.nftId == tokenId){
+            delete generatedCardsByNftId[from][tokenId];
+            generatedCardsByNftId[to][tokenId]= currentPokeCard;
+            generatedCards[from][i] = lastPokeCard;
+            generatedCards[from][generatedCards[from].length - 1] = currentPokeCard;
+            generatedCards[from].pop();
+          }
+        }
+
+
     }
 
     function burn(uint256 tokenId) public override onlyCardOwner(tokenId) {
@@ -110,23 +110,36 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
         delete generatedCardsByNftId[msg.sender][tokenId];
     }
 
-    function generatePokemon(uint256 firstNumber, uint256 secondNumber, string memory token_uri)
+    function getRandomValuesConverted(uint256 requestId) public view returns (uint256 pokedexIndex, uint256 rareLevel){ 
+        (uint256[] memory randomWords, bool isResolved) = vrfConsumer.getRequestData(requestId, msg.sender);
+
+        if(isResolved == true){
+            revert ResolvedRequest(requestId);
+        }
+
+        uint256 pokedexId = randomWords[0] % pokemonAmountToGenerate;
+        uint256 rarityLevel = uint256(PokemonRarityLevel(randomWords[1] % rarityLevels));
+
+        return (pokedexId, rarityLevel);
+    }
+
+    function generatePokemon(uint256 requestId, string memory token_uri)
         external
         generationCooldown
-        noExistingCardForRandomnessRequest(vrfConsumer.getRequestId())
         nonReentrant
-        areProvidedNumbersValid(firstNumber, secondNumber)
     {
-        uint256 pokedexId = firstNumber % pokemonAmountToGenerate;
-        PokemonRarityLevel rarityLevel = PokemonRarityLevel(secondNumber % rarityLevels);
+        
+        
+        (uint256 pokedexId, uint256 rarityLevel)=getRandomValuesConverted(requestId);
 
         uint256 pokemonCardNftID = mint(msg.sender, token_uri);
-        PokemonCard memory newCard = PokemonCard(pokedexId, rarityLevel, pokemonCardNftID, token_uri);
+        PokemonCard memory newCard = PokemonCard(pokedexId, PokemonRarityLevel(rarityLevel), pokemonCardNftID, token_uri);
         generatedCards[msg.sender].push(newCard);
         generatedCardsByNftId[msg.sender][pokemonCardNftID] = newCard;
         totalCardsGenerated[msg.sender]++;
         lastTimeGenerated[msg.sender] = block.number;
-        randomnessRequestIdToNftId[vrfConsumer.getRequestId()] = pokemonCardNftID;
+        
+        vrfConsumer.updateRequest(requestId, msg.sender);
 
         emit PokemonCardGenerated(msg.sender, pokemonCardNftID, pokedexId);
     }
@@ -164,13 +177,5 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
 
     function totalSupply() public view returns (uint256) {
         return _nextTokenId;
-    }
-
-    function getRandomWords() public view returns (uint256[] memory) {
-        uint256[] memory randomWords = vrfConsumer.getRandomWords();
-        if (randomWords.length == 0) {
-            revert RandomWordsNotAvailable();
-        }
-        return randomWords;
     }
 }

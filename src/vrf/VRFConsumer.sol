@@ -2,6 +2,9 @@
 pragma solidity ^0.8.27;
 
 import {ReentrancyGuard} from "../../lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+
+import {AccessControl} from "../../lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
+
 import {
     VRFConsumerBaseV2Plus
 } from "../../lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
@@ -10,84 +13,130 @@ import {
     VRFV2PlusClient
 } from "../../lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 
-contract VRFConsumer is VRFConsumerBaseV2Plus, ReentrancyGuard {
-    // Your subscription ID.
+contract VRFConsumer is VRFConsumerBaseV2Plus, ReentrancyGuard, AccessControl{
+    error AddressZero();
+    error NotRequestOwner(address caller);
 
-    uint256 immutable s_subscriptionId;
+    error NotExistingRequest();
 
-    // The gas lane to use, which specifies the maximum gas price to bump to.
-    // For a list of available gas lanes on each network,
-    // see https://docs.chain.link/docs/vrf-contracts/#configurations
-    bytes32 immutable s_keyHash;
-
-    // Depends on the number of requested values that you want sent to the
-    // fulfillRandomWords() function. Storing each word costs about 20,000 gas,
-    // so 100,000 is a safe default for this example contract. Test and adjust
-    // this limit based on the network that you select, the size of the request,
-    // and the processing of the callback request in the fulfillRandomWords()
-    // function.
-    uint32 constant CALLBACK_GAS_LIMIT = 100_000;
-
-    // The default is 3, but you can set this higher.
-    uint16 constant REQUEST_CONFIRMATIONS = 3;
-
-    // For this example, retrieve 2 random values in one request.
-    // Cannot exceed VRFCoordinatorV2_5.MAX_NUM_WORDS.
-    uint32 constant NUM_WORDS = 2;
-
-    uint256[] public s_randomWords;
-    uint256 public s_requestId;
+    error RequestResolved();
 
     event ReturnedRandomness(uint256[] randomWords);
 
-    /**
-     * @notice Constructor inherits VRFConsumerBaseV2Plus
-     *
-     * @param subscriptionId - the subscription ID that this contract uses for funding requests
-     * @param vrfCoordinator - coordinator, check https://docs.chain.link/vrf/v2-5/supported-networks
-     * @param keyHash - the gas lane to use, which specifies the maximum gas price to bump to
-     */
+ 
+    struct RandomValues {
+        uint256[] randomWords;
+        bool isResolved;
+    }
+
+    uint256 immutable s_subscriptionId;
+
+    bytes32 immutable s_keyHash;
+    uint32 constant CALLBACK_GAS_LIMIT = 100_000;
+    uint16 constant REQUEST_CONFIRMATIONS = 3;
+    uint32 constant NUM_WORDS = 2;
+
+    bytes32 constant private MANAGER_ROLE = keccak256("MANAGER_ROLE");
+ 
+   mapping(uint256=>address) private requestIdToCaller; 
+   mapping(uint256=>RandomValues) private latestRequestsWithValues;
+
+   uint256 private s_requestId;
+    
+
+  
     constructor(uint256 subscriptionId, address vrfCoordinator, bytes32 keyHash) VRFConsumerBaseV2Plus(vrfCoordinator) {
         s_keyHash = keyHash;
         s_subscriptionId = subscriptionId;
+        _grantRole(MANAGER_ROLE, msg.sender);
     }
 
-    function requestRandomWords() external {
-        // Will revert if subscription is not set and funded.
-        s_requestId = s_vrfCoordinator.requestRandomWords(
+
+    modifier onlyManager(){
+        if(!hasRole(MANAGER_ROLE, msg.sender)){
+            revert();
+        }
+        _;
+    }
+
+    modifier onlyRequestOwner(uint256 requestId, address caller){
+        if(requestIdToCaller[requestId] == address(0)){
+            revert AddressZero();
+        }
+
+        if(requestIdToCaller[requestId] != caller){
+            revert NotRequestOwner(caller);
+        }
+
+        _;
+    }
+
+    modifier isExistingRequest(uint256 requestId){
+        if(requestId > s_requestId || latestRequestsWithValues[requestId].randomWords.length == 0){
+            revert NotExistingRequest();
+        }
+        _;
+    }
+
+    modifier isResolved(uint256 requestId){
+          if(latestRequestsWithValues[requestId].isResolved == true){
+            revert RequestResolved();
+        }
+        _;
+    }
+
+function transferManagerRole(address newManager) public onlyManager{
+    _grantRole(MANAGER_ROLE, newManager);
+    _revokeRole(MANAGER_ROLE, msg.sender);
+}
+
+
+    function requestRandomWords() external nonReentrant returns (uint256) {
+
+    s_requestId = s_vrfCoordinator.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
                 keyHash: s_keyHash,
                 subId: s_subscriptionId,
                 requestConfirmations: REQUEST_CONFIRMATIONS,
                 callbackGasLimit: CALLBACK_GAS_LIMIT,
                 numWords: NUM_WORDS,
-                extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
+                extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
             })
         );
+        
+        requestIdToCaller[s_requestId]=msg.sender;
+
+        return s_requestId;
     }
 
     function fulfillRandomWords(
-        uint256,
-        /* requestId */
+        uint256 requestId, 
         uint256[] calldata randomWords
     )
         internal
         override
     {
-        s_randomWords = randomWords;
+        latestRequestsWithValues[requestId] = RandomValues(randomWords, false);
         emit ReturnedRandomness(randomWords);
     }
 
-    function getRequestId() public view returns (uint256) {
-        return s_requestId;
-    }
 
-    function getSubscriptionId() public view returns (uint256) {
+// TEST ONLY START
+    function getSubscriptionId() public view returns(uint256){
         return s_subscriptionId;
     }
 
-    function getRandomWords() public view returns (uint256[] memory) {
-        return s_randomWords;
+    function getRequestId() public view returns(uint256){
+        return s_requestId;
+    }
+// TEST ONLY END
+
+    function getRequestData(uint256 requestId, address caller) public view onlyManager isExistingRequest(requestId) onlyRequestOwner(requestId, caller) isResolved(requestId) returns (uint256[] memory randomValues, bool isRequestResolved) {
+        return (latestRequestsWithValues[requestId].randomWords, latestRequestsWithValues[requestId].isResolved);
+    }
+    
+    function updateRequest(uint256 requestId, address caller) public onlyManager isExistingRequest(requestId) isResolved(requestId) onlyRequestOwner(requestId, caller){
+        latestRequestsWithValues[requestId].isResolved = true;
     }
 }
 

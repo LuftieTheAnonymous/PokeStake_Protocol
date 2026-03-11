@@ -16,16 +16,18 @@ contract DeployContracts is Script {
     PokemonStakingPool pokemonStakingPool;
     VRFMockCoordinator vrfMockCoordinator;
     VRFConsumer randomnessConsumer;
-    // bytes32 keyHash = 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae; TEST
+    bytes32 keyHash = 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
 
-    function run() public returns (SnorlieCoin, PokeCardCollection, PokemonStakingPool, VRFConsumer) {
+    function run() public returns (SnorlieCoin, PokeCardCollection, PokemonStakingPool, VRFMockCoordinator, VRFConsumer) {
         vm.startBroadcast();
-        // vrfMockCoordinator = new VRFMockCoordinator(100000000000000000, 1000000000, 4e15); Test
+        vrfMockCoordinator = new VRFMockCoordinator(100000000000000000, 1000000000, 4e15);
 
         // CREATE YOUR OWN SUBSCRIPTION
-        // uint256 subscriptionId = vrfMockCoordinator.createSubscription();
-        randomnessConsumer = new VRFConsumer(vm.envUint("SUBSCRIPTION_ID_SEPOLIA"), 
-        vm.envAddress("COORDINATOR_SEPOLIA"), bytes32(vm.envBytes("KEYHASH_SEPOLIA")));
+        uint256 subscriptionId = vrfMockCoordinator.createSubscription();
+
+        // vm.envAddress("COORDINATOR_SEPOLIA")
+        randomnessConsumer = new VRFConsumer(subscriptionId,
+        address(vrfMockCoordinator), keyHash);
 
         snorlieCoin = new SnorlieCoin();
         pokeCardCollection = new PokeCardCollection(address(randomnessConsumer));
@@ -34,10 +36,12 @@ contract DeployContracts is Script {
             address(snorlieCoin), address(pokeCardCollection)
         );
 
-    // ADD CONSUMER TO YOUR SUBSCRIPTION
-        // vrfMockCoordinator.addConsumer(vm.envUint("SUBSCRIPTION_ID_SEPOLIA"), address(randomnessConsumer));
+    // ADD CONSUMER TO YOUR SUBSCRIPTION IN PROD vm.envUint("SUBSCRIPTION_ID_SEPOLIA")
+        vrfMockCoordinator.addConsumer(subscriptionId, address(randomnessConsumer));
 
         snorlieCoin.transferOwnership(address(pokemonStakingPool));
+
+        randomnessConsumer.transferManagerRole(address(pokeCardCollection));
 
         // vrfMockCoordinator.transferOwnership(address(pokeCardCollection));
 
@@ -47,6 +51,7 @@ contract DeployContracts is Script {
             snorlieCoin,
             pokeCardCollection,
             pokemonStakingPool,
+            vrfMockCoordinator,
             randomnessConsumer
         );
     }
