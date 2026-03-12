@@ -56,7 +56,7 @@ contract PokeStakeTest is Test {
         randomnessConsumer.requestRandomWords();
 
 
-        assert(randomnessConsumer.getRequestId() == randomnessConsumer.getRequestId());
+        assert(randomnessConsumer.getRequestId() == 2);
 
         vrfMockCoordinator.fulfillRandomWords(randomnessConsumer.getRequestId(), address(randomnessConsumer));
 

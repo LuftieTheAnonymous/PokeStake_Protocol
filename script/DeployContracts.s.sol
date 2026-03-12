@@ -14,20 +14,20 @@ contract DeployContracts is Script {
     SnorlieCoin snorlieCoin;
     PokeCardCollection pokeCardCollection;
     PokemonStakingPool pokemonStakingPool;
-    VRFMockCoordinator vrfMockCoordinator;
+    // VRFMockCoordinator vrfMockCoordinator;
     VRFConsumer randomnessConsumer;
-    bytes32 keyHash = 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
+    // bytes32 keyHash = 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
 
-    function run() public returns (SnorlieCoin, PokeCardCollection, PokemonStakingPool, VRFMockCoordinator, VRFConsumer) {
+    function run() public returns (SnorlieCoin, PokeCardCollection, PokemonStakingPool, VRFConsumer) {
         vm.startBroadcast();
-        vrfMockCoordinator = new VRFMockCoordinator(100000000000000000, 1000000000, 4e15);
+        // vrfMockCoordinator = new VRFMockCoordinator(100000000000000000, 1000000000, 4e15);
 
-        // CREATE YOUR OWN SUBSCRIPTION
-        uint256 subscriptionId = vrfMockCoordinator.createSubscription();
+        // // CREATE YOUR OWN SUBSCRIPTION
+        // uint256 subscriptionId = vrfMockCoordinator.createSubscription();
 
         // vm.envAddress("COORDINATOR_SEPOLIA")
-        randomnessConsumer = new VRFConsumer(subscriptionId,
-        address(vrfMockCoordinator), keyHash);
+        randomnessConsumer = new VRFConsumer(vm.envUint("SUBSCRIPTION_ID_SEPOLIA"),
+        vm.envAddress("COORDINATOR_SEPOLIA"), vm.envBytes32("KEYHASH_SEPOLIA"));
 
         snorlieCoin = new SnorlieCoin();
         pokeCardCollection = new PokeCardCollection(address(randomnessConsumer));
@@ -37,7 +37,7 @@ contract DeployContracts is Script {
         );
 
     // ADD CONSUMER TO YOUR SUBSCRIPTION IN PROD vm.envUint("SUBSCRIPTION_ID_SEPOLIA")
-        vrfMockCoordinator.addConsumer(subscriptionId, address(randomnessConsumer));
+        // vrfMockCoordinator.addConsumer(subscriptionId, address(randomnessConsumer));
 
         snorlieCoin.transferOwnership(address(pokemonStakingPool));
 
@@ -51,7 +51,6 @@ contract DeployContracts is Script {
             snorlieCoin,
             pokeCardCollection,
             pokemonStakingPool,
-            vrfMockCoordinator,
             randomnessConsumer
         );
     }

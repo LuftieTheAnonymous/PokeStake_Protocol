@@ -25,8 +25,11 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
     event RewardsClaimed(address indexed user, uint256 amount);
 
     struct PokeStakePosition {
+        uint256 pokedexId;
+        uint256 rarityLevel;
         uint256 nftId;
-        uint256 pokemonRarityLevel;
+        string tokenURI;
+        string pinataId;
         uint256 stakedAtBlock;
     }
 
@@ -80,18 +83,21 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
         returns (bytes4)
     {
         // Determine the rarity level of the staked Pokemon (this is a placeholder, you would need to implement your own logic to determine rarity)
-        uint256 pokemonRarityLevel = uint256(nftCollection.getGeneratedCardByNftId(from, tokenId).rarityLevel);
+        PokeCardCollection.PokemonCard memory pokemonCard = nftCollection.getGeneratedCardByNftId(from, tokenId);
 
         // Record the staking position
         stakedNfts[from].push(
             PokeStakePosition({
                 nftId: tokenId,
-                pokemonRarityLevel: pokemonRarityLevel + 1, // Adding 1 to avoid zero rarity levels
-                stakedAtBlock: block.number
+                rarityLevel: uint256(pokemonCard.rarityLevel) + 1, // Adding 1 to avoid zero rarity levels
+               tokenURI: pokemonCard.tokenURI,
+                stakedAtBlock: block.number,
+                pokedexId: pokemonCard.pokedexId,
+                pinataId: pokemonCard.pinataId
             })
         );
 
-        emit Staked(from, tokenId, pokemonRarityLevel, block.number);
+        emit Staked(from, tokenId, uint256(pokemonCard.rarityLevel), block.number);
 
         return IERC721Receiver.onERC721Received.selector;
     }
@@ -99,6 +105,7 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
     function getStakedPositions(address user) public view returns (PokeStakePosition[] memory) {
         return stakedNfts[user];
     }
+
 
     function stake(uint256 tokenId) external onlyNftOwner(tokenId) nonReentrant {
         // Transfer the NFT to the staking contract
@@ -135,7 +142,7 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
             if (stakedDurationInDaysWad == 0) {
                 continue; // Skip this position
             }
-            uint256 rarityMultiplier = stakedPositions[i].pokemonRarityLevel;
+            uint256 rarityMultiplier = stakedPositions[i].rarityLevel;
             uint256 positionRewards = (stakedDurationInDaysWad * rewardPerOneDayOfStake * rarityMultiplier) / 1e18;
 
             totalRewards += positionRewards;
@@ -147,7 +154,7 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
         PokemonStakingPool.PokeStakePosition[] memory stakedPositions = getStakedPositions(msg.sender);
         uint256 totalAPY = 0;
         for (uint256 i = 0; i < stakedPositions.length; i++) {
-            uint256 rarityMultiplier = stakedPositions[i].pokemonRarityLevel;
+            uint256 rarityMultiplier = stakedPositions[i].rarityLevel;
 
             uint256 apyForPosition = rewardPerOneDayOfStake * rarityMultiplier * 365;
 

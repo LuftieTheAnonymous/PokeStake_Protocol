@@ -38,7 +38,8 @@ contract VRFConsumer is VRFConsumerBaseV2Plus, ReentrancyGuard, AccessControl{
 
     bytes32 constant private MANAGER_ROLE = keccak256("MANAGER_ROLE");
  
-   mapping(uint256=>address) private requestIdToCaller; 
+   mapping(uint256=>address) private requestIdToCaller;
+   mapping(address=>uint256) private callerToRequestId;
    mapping(uint256=>RandomValues) private latestRequestsWithValues;
 
    uint256 private s_requestId;
@@ -72,7 +73,7 @@ contract VRFConsumer is VRFConsumerBaseV2Plus, ReentrancyGuard, AccessControl{
     }
 
     modifier isExistingRequest(uint256 requestId){
-        if(requestId > s_requestId || latestRequestsWithValues[requestId].randomWords.length == 0){
+        if(latestRequestsWithValues[requestId].randomWords.length == 0){
             revert NotExistingRequest();
         }
         _;
@@ -105,7 +106,7 @@ function transferManagerRole(address newManager) public onlyManager{
         );
         
         s_requestId = requestId;
-
+        callerToRequestId[msg.sender]=requestId;
         requestIdToCaller[requestId]=msg.sender;
 
         return requestId;
@@ -128,13 +129,18 @@ function transferManagerRole(address newManager) public onlyManager{
         return s_subscriptionId;
     }
 
-    function getRequestId() public view returns(uint256){
-        return s_requestId;
+    function getRequestId(address caller) public view returns(uint256){
+        return callerToRequestId[caller];
     }
+    
 // TEST ONLY END
 
-    function getRequestData(uint256 requestId, address caller) public view onlyManager isExistingRequest(requestId) onlyRequestOwner(requestId, caller) isResolved(requestId) returns (uint256[] memory randomValues, bool isRequestResolved) {
-        return (latestRequestsWithValues[requestId].randomWords, latestRequestsWithValues[requestId].isResolved);
+    function getRequestData(address caller, uint256 modulatorPokedex, uint256 rarityModulator) public view returns (uint256 pokedexIndex, uint256 rarityLevel, bool isRequestResolved) {
+         uint256 requestId = getRequestId(caller);
+
+         pokedexIndex = latestRequestsWithValues[requestId].randomWords[0] % modulatorPokedex;
+         rarityLevel = latestRequestsWithValues[requestId].randomWords[1] % rarityModulator;
+        return (pokedexIndex, rarityLevel, latestRequestsWithValues[requestId].isResolved);
     }
     
     function updateRequest(uint256 requestId, address caller) public onlyManager isExistingRequest(requestId) isResolved(requestId) onlyRequestOwner(requestId, caller){

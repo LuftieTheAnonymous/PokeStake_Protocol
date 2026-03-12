@@ -10,7 +10,6 @@ import {ReentrancyGuard} from "../lib/openzeppelin-contracts/contracts/utils/Ree
 import {VRFConsumer} from "./vrf/VRFConsumer.sol";
 
 contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, ReentrancyGuard, AccessControl {
-    error RandomWordsNotAvailable();
     error GenerationCooldownNotReached();
     error NotMinter();
     error NotOwner();
@@ -31,6 +30,7 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
         PokemonRarityLevel rarityLevel;
         uint256 nftId;
         string tokenURI;
+        string pinataId;
     }
 
     uint256 private pokemonAmountToGenerate = 151;
@@ -109,31 +109,27 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
         super.burn(tokenId);
         delete generatedCardsByNftId[msg.sender][tokenId];
     }
-
-    function getRandomValuesConverted(uint256 requestId) public view returns (uint256 pokedexIndex, uint256 rareLevel){ 
-        (uint256[] memory randomWords, bool isResolved) = vrfConsumer.getRequestData(requestId, msg.sender);
-
-        if(isResolved == true){
-            revert ResolvedRequest(requestId);
-        }
-
-        uint256 pokedexId = randomWords[0] % pokemonAmountToGenerate;
-        uint256 rarityLevel = uint256(PokemonRarityLevel(randomWords[1] % rarityLevels));
-
-        return (pokedexId, rarityLevel);
-    }
-
-    function generatePokemon(uint256 requestId, string memory token_uri)
+ 
+    function generatePokemon(string memory token_uri, string memory pinataId)
         external
         generationCooldown
         nonReentrant
     {
-        
-        
-        (uint256 pokedexId, uint256 rarityLevel)=getRandomValuesConverted(requestId);
+        uint256 requestId = vrfConsumer.getRequestId(msg.sender);
+        (uint256 pokedexId, uint256 rarityLevel, bool isRequestResolved) = vrfConsumer.getRequestData(msg.sender, pokemonAmountToGenerate, rarityLevels);
+
+        if(isRequestResolved == true){
+            revert ResolvedRequest(requestId);
+        }
 
         uint256 pokemonCardNftID = mint(msg.sender, token_uri);
-        PokemonCard memory newCard = PokemonCard(pokedexId, PokemonRarityLevel(rarityLevel), pokemonCardNftID, token_uri);
+        PokemonCard memory newCard = PokemonCard({
+            pokedexId:pokedexId, 
+            rarityLevel: PokemonRarityLevel(rarityLevel),
+            nftId: pokemonCardNftID, 
+            tokenURI: token_uri,
+            pinataId:pinataId
+        });
         generatedCards[msg.sender].push(newCard);
         generatedCardsByNftId[msg.sender][pokemonCardNftID] = newCard;
         totalCardsGenerated[msg.sender]++;
