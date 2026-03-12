@@ -40,14 +40,23 @@ contract PokeStakeTest is Test {
 
         randomnessConsumer.requestRandomWords();
 
-        vrfMockCoordinator.fulfillRandomWords(randomnessConsumer.getRequestId(), address(randomnessConsumer));
+        uint256 first_random_request_id = randomnessConsumer.getRequestId();
+
+        vrfMockCoordinator.fulfillRandomWords(first_random_request_id, address(randomnessConsumer));
+
+        assert(randomnessConsumer.getRequestId() == first_random_request_id);
 
         vm.expectRevert();
         pokeCardCollection.generatePokemon(4, "https://");
 
-        pokeCardCollection.generatePokemon(randomnessConsumer.getRequestId(), "https://");
+        pokeCardCollection.generatePokemon(first_random_request_id, "https://");
+
+// First token generation
 
         randomnessConsumer.requestRandomWords();
+
+
+        assert(randomnessConsumer.getRequestId() == randomnessConsumer.getRequestId());
 
         vrfMockCoordinator.fulfillRandomWords(randomnessConsumer.getRequestId(), address(randomnessConsumer));
 

@@ -93,7 +93,7 @@ function transferManagerRole(address newManager) public onlyManager{
 
     function requestRandomWords() external nonReentrant returns (uint256) {
 
-    s_requestId = s_vrfCoordinator.requestRandomWords(
+    uint256 requestId = s_vrfCoordinator.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
                 keyHash: s_keyHash,
                 subId: s_subscriptionId,
@@ -104,9 +104,11 @@ function transferManagerRole(address newManager) public onlyManager{
             })
         );
         
-        requestIdToCaller[s_requestId]=msg.sender;
+        s_requestId = requestId;
 
-        return s_requestId;
+        requestIdToCaller[requestId]=msg.sender;
+
+        return requestId;
     }
 
     function fulfillRandomWords(
