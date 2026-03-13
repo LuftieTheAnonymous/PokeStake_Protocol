@@ -107,11 +107,6 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
     }
 
 
-    function stake(uint256 tokenId) external onlyNftOwner(tokenId) nonReentrant {
-        // Transfer the NFT to the staking contract
-        nftCollection.safeTransferFrom(msg.sender, address(this), tokenId);
-    }
-
     function unstake(uint256 tokenId) external minimumBlocksToUnstakeReached(tokenId) nonReentrant hasClaimedRewards {
         // Find the staking position and remove it
 
@@ -124,10 +119,10 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
                 // Remove the staking position
                 stakedPositions[i] = stakedPositions[stakedPositions.length - 1];
                 stakedPositions.pop();
+                emit Unstaked(msg.sender, tokenId);
                 break;
             }
         }
-        emit Unstaked(msg.sender, tokenId);
     }
 
     function calculateRewards(address user) public view returns (uint256) {

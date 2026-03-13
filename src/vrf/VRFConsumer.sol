@@ -148,3 +148,4 @@ function transferManagerRole(address newManager) public onlyManager{
     }
 }
 
+    
