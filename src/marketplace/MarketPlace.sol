@@ -25,6 +25,10 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard{
 
     event PokeCardSold(address puchasedBy, uint256 blockNumber);
 
+    event PokeCardDelisted(uint256 listingId, uint256 tokenId);
+
+    event 
+
     struct SaleListing {
         address listingOwner;
         uint256 nftId;
@@ -55,6 +59,7 @@ nftCollection = PokeCardCollection(pokeCardCollectionAddress);
 snorlieCoin = SnorlieCoin(snorlieCoinAddress);
 dataFeed = AggregatorV3Interface(ethUsdPriceFeed);
 }
+
 
 
   function updateEthUsdPrice() public returns (uint256) {
@@ -186,6 +191,16 @@ dataFeed = AggregatorV3Interface(ethUsdPriceFeed);
         }
     }
 
+
+function delistPokemonCard(uint256 listingId) public nonReentrant {
     
+    uint256 pokeCardId= listings[listingId].nftId;
+
+    nftCollection.safeTransferFrom(address(this), msg.sender, listings[listingId].nftId);
+
+    delete listings[listingId];
+
+    emit PokeCardDelisted(listingId, pokeCardId);
+    }
 
 }
