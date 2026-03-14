@@ -70,7 +70,7 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
     }
 
     modifier hasClaimedRewards() {
-        uint256 amountToClaim = getRewardAmount();
+        uint256 amountToClaim = getRewardAmount(msg.sender);
         if (amountToClaim > 0) {
             revert NeedToClaimRewardsFirst();
         }
@@ -159,7 +159,7 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
     }
 
     function claimRewards() public nonReentrant {
-        uint256 rewardsToClaim = getRewardAmount();
+        uint256 rewardsToClaim = getRewardAmount(msg.sender);
         totalRewardsClaimed[msg.sender] += rewardsToClaim;
         lastClaimedAt[msg.sender] = block.number;
         rewardToken.mint(msg.sender, rewardsToClaim);
@@ -167,8 +167,8 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
         emit RewardsClaimed(msg.sender, rewardsToClaim);
     }
 
-    function getRewardAmount() public view returns (uint256) {
-        uint256 rewardsToClaim = calculateRewards(msg.sender) - totalRewardsClaimed[msg.sender];
+    function getRewardAmount(address member) public view returns (uint256) {
+        uint256 rewardsToClaim = calculateRewards(member) - totalRewardsClaimed[member];
         // You can return this value or emit an event, depending on your needs
         return rewardsToClaim;
     }

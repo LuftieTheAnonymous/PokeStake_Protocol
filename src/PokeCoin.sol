@@ -43,4 +43,6 @@ contract SnorlieCoin is ERC20, ERC20Burnable, AccessControl, ERC20Permit {
         _transfer(from, to, value);
         return true;
     }
+
+
 }
