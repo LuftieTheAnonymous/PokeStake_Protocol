@@ -3,11 +3,14 @@ pragma solidity ^0.8.27;
 
 import {AccessControl} from "../lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
 import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {ERC20, IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ERC20Burnable} from "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import {ERC20Permit} from "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
 
 contract SnorlieCoin is ERC20, ERC20Burnable, AccessControl, ERC20Permit {
+    using SafeERC20 for IERC20;
+
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
     constructor() ERC20("SnorlieCoin", "SNORLIE") ERC20Permit("SnorlieCoin") {
@@ -43,6 +46,4 @@ contract SnorlieCoin is ERC20, ERC20Burnable, AccessControl, ERC20Permit {
         _transfer(from, to, value);
         return true;
     }
-
-
 }

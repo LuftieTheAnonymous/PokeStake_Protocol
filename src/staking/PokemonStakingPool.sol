@@ -12,9 +12,7 @@ import {IERC721Receiver} from "../../lib/openzeppelin-contracts/contracts/token/
 contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
     using Math for uint256;
 
-    error OperationNotSuccessful();
-
-    uint256 private constant rewardPerOneDayOfStake = 1 ether;
+    uint256 private constant rewardPerOneDayOfStake = 1e18;
 
     error NotTheOwnerOfTheNFT();
     error MinimumBlocksToUnstakeNotReached();
@@ -51,6 +49,7 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
         if (nftCollection.ownerOf(tokenId) != msg.sender) {
             revert NotTheOwnerOfTheNFT();
         }
+
         _;
     }
 
@@ -90,7 +89,7 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
             PokeStakePosition({
                 nftId: tokenId,
                 rarityLevel: uint256(pokemonCard.rarityLevel) + 1, // Adding 1 to avoid zero rarity levels
-               tokenURI: pokemonCard.tokenURI,
+                tokenURI: pokemonCard.tokenURI,
                 stakedAtBlock: block.number,
                 pokedexId: pokemonCard.pokedexId,
                 pinataId: pokemonCard.pinataId
@@ -106,13 +105,20 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
         return stakedNfts[user];
     }
 
+    function stake(uint256 tokenId) public onlyNftOwner(tokenId) {
+        nftCollection.safeTransferFrom(msg.sender, address(this), tokenId);
+    }
 
     function unstake(uint256 tokenId) external minimumBlocksToUnstakeReached(tokenId) nonReentrant hasClaimedRewards {
         // Find the staking position and remove it
 
         PokeStakePosition[] storage stakedPositions = stakedNfts[msg.sender];
+        address destinationAddress = msg.sender;
+
         for (uint256 i = 0; i < stakedPositions.length; i++) {
             if (stakedPositions[i].nftId == tokenId) {
+                nftCollection.approve(destinationAddress, tokenId);
+
                 // Transfer the NFT back to the owner
                 nftCollection.safeTransferFrom(address(this), msg.sender, tokenId);
 
@@ -145,8 +151,8 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
         return totalRewards;
     }
 
-    function calculateAPY() public view returns (uint256) {
-        PokemonStakingPool.PokeStakePosition[] memory stakedPositions = getStakedPositions(msg.sender);
+    function calculateAPY(address user) public view returns (uint256) {
+        PokemonStakingPool.PokeStakePosition[] memory stakedPositions = getStakedPositions(user);
         uint256 totalAPY = 0;
         for (uint256 i = 0; i < stakedPositions.length; i++) {
             uint256 rarityMultiplier = stakedPositions[i].rarityLevel;

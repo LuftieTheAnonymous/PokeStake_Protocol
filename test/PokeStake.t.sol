@@ -6,7 +6,7 @@ import {Test} from "../lib/forge-std/src/Test.sol";
 import {SnorlieCoin} from "../src/PokeCoin.sol";
 import {PokeCardCollection} from "../src/PokeCardCollection.sol";
 import {PokemonStakingPool} from "../src/staking/PokemonStakingPool.sol";
-import {DeployContracts} from "../script/DeployContracts.s.sol";
+import {DeployContracts} from "../script/DeployTestContracts.s.sol";
 import {VRFMockCoordinator} from "../src/vrf/VRFMockCoordinator.sol";
 import {VRFConsumer} from "../src/vrf/VRFConsumer.sol";
 
@@ -40,33 +40,31 @@ contract PokeStakeTest is Test {
 
         randomnessConsumer.requestRandomWords();
 
-        uint256 first_random_request_id = randomnessConsumer.getRequestId();
+        uint256 first_random_request_id = randomnessConsumer.getRequestId(actor);
 
         vrfMockCoordinator.fulfillRandomWords(first_random_request_id, address(randomnessConsumer));
 
-        assert(randomnessConsumer.getRequestId() == first_random_request_id);
+        assert(randomnessConsumer.getRequestId(actor) == first_random_request_id);
 
         vm.expectRevert();
-        pokeCardCollection.generatePokemon(4, "https://");
+        pokeCardCollection.generatePokemon("https://", "");
 
-        pokeCardCollection.generatePokemon(first_random_request_id, "https://");
+        pokeCardCollection.generatePokemon("https://", "");
 
-// First token generation
+        // First token generation
 
         randomnessConsumer.requestRandomWords();
 
+        assert(randomnessConsumer.getRequestId(msg.sender) == 2);
 
-        assert(randomnessConsumer.getRequestId() == 2);
+        vrfMockCoordinator.fulfillRandomWords(randomnessConsumer.getRequestId(msg.sender), address(randomnessConsumer));
 
-        vrfMockCoordinator.fulfillRandomWords(randomnessConsumer.getRequestId(), address(randomnessConsumer));
-
-uint256 requestId = randomnessConsumer.getRequestId();
         vm.expectRevert();
-        pokeCardCollection.generatePokemon(requestId - 1, "https://");
+        pokeCardCollection.generatePokemon("https://", "");
 
         vm.roll(block.number + 10000);
         vm.expectRevert();
-        pokeCardCollection.generatePokemon(requestId - 1, "https://");
+        pokeCardCollection.generatePokemon("https://", "");
         vm.stopPrank();
     }
 
@@ -81,32 +79,9 @@ uint256 requestId = randomnessConsumer.getRequestId();
 
         randomnessConsumer.requestRandomWords();
 
-        vrfMockCoordinator.fulfillRandomWords(randomnessConsumer.getRequestId(), address(randomnessConsumer));
+        vrfMockCoordinator.fulfillRandomWords(randomnessConsumer.getRequestId(msg.sender), address(randomnessConsumer));
 
-
-uint256 firstRequestId = randomnessConsumer.getRequestId();
-
-        pokeCardCollection.generatePokemon(firstRequestId, "https://");
-        vm.expectRevert();
-        pokeCardCollection.generatePokemon(firstRequestId - 1, "https://");
-        
-        vm.expectRevert();
-        randomnessConsumer.getRequestData(firstRequestId + 1, actor);
-        
-        vm.expectRevert();
-        randomnessConsumer.getRequestData(firstRequestId, actor);
-
-        vm.expectRevert();
-        randomnessConsumer.updateRequest(firstRequestId, actor);
-       
-        vm.expectRevert();
-        randomnessConsumer.updateRequest(firstRequestId + 1, actor);
-
-        vm.expectRevert();
-        pokeCardCollection.getRandomValuesConverted(firstRequestId - 1);
-
-        vm.expectRevert();
-        pokeCardCollection.getRandomValuesConverted(firstRequestId);
+        pokeCardCollection.generatePokemon("https://", "32sdgsdgsdhd");
 
         assert(pokeCardCollection.totalSupply() > 0);
         assert(pokeCardCollection.getGeneratedCards(actor).length > 0);

@@ -5,7 +5,6 @@ import {AccessControl} from "../lib/openzeppelin-contracts/contracts/access/Acce
 import {ERC721, IERC721} from "../lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
 import {ERC721Burnable} from "../lib/openzeppelin-contracts/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import {ERC721URIStorage} from "../lib/openzeppelin-contracts/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
-
 import {ReentrancyGuard} from "../lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {VRFConsumer} from "./vrf/VRFConsumer.sol";
 
@@ -15,8 +14,9 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
     error NotOwner();
 
     error ResolvedRequest(uint256 requestId);
+    error NoResolvedRequestOrNoRequestSent(address caller);
 
-    event PokemonCardGenerated(address indexed user, uint256 indexed nftId, uint256 pokedexId);
+    event PokemonCardGenerated(address indexed user, uint256 indexed nftId, uint256 pokedexId, uint256 requestId);
 
     enum PokemonRarityLevel {
         Common,
@@ -35,19 +35,16 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
 
     uint256 private pokemonAmountToGenerate = 151;
     uint256 private constant rarityLevels = 4;
-    uint256 private constant generationCooldownInBlock = 7200; // 24 hours assuming 12s block time
+    uint256 private constant generationCooldownInBlock = 7200;
     bytes32 private constant CONTROLLER_ROLE = keccak256("CONTROLLER_ROLE");
     mapping(address => PokemonCard[]) private generatedCards;
     mapping(address => mapping(uint256 => PokemonCard)) private generatedCardsByNftId;
     mapping(address => uint256) private totalCardsGenerated;
     mapping(address => uint256) private lastTimeGenerated;
-
-
     VRFConsumer private vrfConsumer;
-
     uint256 private _nextTokenId;
 
-    constructor(address vrfConsumerAddress) ERC721("PokeCard", "PIKA") {
+    constructor(address vrfConsumerAddress) ERC721("PokeCard", "PICA") {
         vrfConsumer = VRFConsumer(vrfConsumerAddress);
         _grantRole(CONTROLLER_ROLE, msg.sender);
     }
@@ -73,8 +70,14 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
         _;
     }
 
- 
-
+    modifier hasSentRequestOrRequestPassed() {
+        if (vrfConsumer.getRequestDataArray(msg.sender).length == 0 || vrfConsumer.getRequestId(msg.sender) == 0) {
+            revert NoResolvedRequestOrNoRequestSent(msg.sender);
+        }
+        _;
+    }
+    
+    // Amount to manage the pokemon amount to be drawn
     function setPokemonAmountToGenerate(uint256 amount) external onlyController {
         pokemonAmountToGenerate = amount;
     }
@@ -86,61 +89,62 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
         return tokenId;
     }
 
+    function approve(address to, uint256 tokenId) public override(ERC721, IERC721) {
+        super.approve(to, tokenId);
+    }
+
     function safeTransferFrom(address from, address to, uint256 tokenId) public override(ERC721, IERC721) {
         super.safeTransferFrom(from, to, tokenId);
-        
+
         for (uint256 i = 0; i < generatedCards[from].length; i++) {
-        PokemonCard memory lastPokeCard = generatedCards[from][generatedCards[from].length - 1];
-        PokemonCard memory currentPokeCard = generatedCards[from][i];
+            PokemonCard memory lastPokeCard = generatedCards[from][generatedCards[from].length - 1];
+            PokemonCard memory currentPokeCard = generatedCards[from][i];
 
-          if(currentPokeCard.nftId == tokenId){
-            delete generatedCardsByNftId[from][tokenId];
-            generatedCardsByNftId[to][tokenId]= currentPokeCard;
-            generatedCards[from][i] = lastPokeCard;
-            generatedCards[from][generatedCards[from].length - 1] = currentPokeCard;
-            generatedCards[from].pop();
-          }
+            if (currentPokeCard.nftId == tokenId) {
+                delete generatedCardsByNftId[from][tokenId];
+                generatedCardsByNftId[to][tokenId] = currentPokeCard;
+                generatedCards[from][i] = lastPokeCard;
+                generatedCards[from][generatedCards[from].length - 1] = currentPokeCard;
+                generatedCards[from].pop();
+            }
         }
-
-
     }
 
     function burn(uint256 tokenId) public override onlyCardOwner(tokenId) {
         super.burn(tokenId);
         delete generatedCardsByNftId[msg.sender][tokenId];
     }
- 
+
     function generatePokemon(string memory token_uri, string memory pinataId)
         external
+        hasSentRequestOrRequestPassed
         generationCooldown
         nonReentrant
     {
         uint256 requestId = vrfConsumer.getRequestId(msg.sender);
-        (uint256 pokedexId, uint256 rarityLevel, bool isRequestResolved) = vrfConsumer.getRequestData(msg.sender, pokemonAmountToGenerate, rarityLevels);
+        (uint256 pokedexId, uint256 rarityLevel, bool isRequestResolved) =
+            vrfConsumer.getRequestData(msg.sender, pokemonAmountToGenerate, rarityLevels);
 
-        if(isRequestResolved == true){
+        if (isRequestResolved == true) {
             revert ResolvedRequest(requestId);
         }
-
         uint256 pokemonCardNftID = mint(msg.sender, token_uri);
         PokemonCard memory newCard = PokemonCard({
-            pokedexId:pokedexId, 
+            pokedexId: pokedexId,
             rarityLevel: PokemonRarityLevel(rarityLevel),
-            nftId: pokemonCardNftID, 
+            nftId: pokemonCardNftID,
             tokenURI: token_uri,
-            pinataId:pinataId
+            pinataId: pinataId
         });
         generatedCards[msg.sender].push(newCard);
         generatedCardsByNftId[msg.sender][pokemonCardNftID] = newCard;
         totalCardsGenerated[msg.sender]++;
         lastTimeGenerated[msg.sender] = block.number;
-        
+
         vrfConsumer.updateRequest(requestId, msg.sender);
 
-        emit PokemonCardGenerated(msg.sender, pokemonCardNftID, pokedexId);
+        emit PokemonCardGenerated(msg.sender, pokemonCardNftID, pokedexId, requestId);
     }
-
-    // The following functions are overrides required by Solidity.
 
     function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory) {
         return super.tokenURI(tokenId);
