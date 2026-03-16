@@ -14,6 +14,7 @@ contract DeployContracts is Script {
     PokemonStakingPool pokemonStakingPool;
     // VRFMockCoordinator vrfMockCoordinator;
     VRFConsumer randomnessConsumer;
+    MarketPlace marketplace;
     // bytes32 keyHash = 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
 
     function run() public returns (SnorlieCoin, PokeCardCollection, PokemonStakingPool, VRFConsumer) {
@@ -42,10 +43,14 @@ contract DeployContracts is Script {
 
         randomnessConsumer.transferManagerRole(address(pokeCardCollection));
 
+        marketplace = new MarketPlace(
+            address(snorlieCoin), address(pokeCardCollection), vm.envAddress("PRICE_FEED_ADDRESS_ETH_USD"), msg.sender
+        );
+
         // vrfMockCoordinator.transferOwnership(address(pokeCardCollection));
 
         vm.stopBroadcast();
 
-        return (snorlieCoin, pokeCardCollection, pokemonStakingPool, randomnessConsumer);
+        return (snorlieCoin, pokeCardCollection, pokemonStakingPool, randomnessConsumer, marketplace);
     }
 }
