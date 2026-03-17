@@ -92,7 +92,7 @@ contract VRFConsumer is VRFConsumerBaseV2Plus, ReentrancyGuard, AccessControl {
     }
 
     modifier hasBlockTimeExpired() {
-        if (recentCallByUser[msg.sender] != 0 && recentCallByUser[msg.sender] + REQUEST_BLOCK_TIME < block.number) {
+        if (recentCallByUser[msg.sender] != 0 && recentCallByUser[msg.sender] + REQUEST_BLOCK_TIME > block.number) {
             revert BlockTimeNotExpired();
         }
         _;
@@ -120,6 +120,7 @@ contract VRFConsumer is VRFConsumerBaseV2Plus, ReentrancyGuard, AccessControl {
         s_requestId = requestId;
         callerToRequestId[msg.sender] = requestId;
         requestIdToCaller[requestId] = msg.sender;
+        recentCallByUser[msg.sender] = block.number;
 
         return requestId;
     }
@@ -147,6 +148,10 @@ contract VRFConsumer is VRFConsumerBaseV2Plus, ReentrancyGuard, AccessControl {
         returns (uint256 pokedexIndex, uint256 rarityLevel, bool isRequestResolved)
     {
         uint256 requestId = getRequestId(caller);
+
+        if(latestRequestsWithValues[requestId].randomWords.length == 0){
+            revert NotExistingRequest();
+        }
 
         pokedexIndex = latestRequestsWithValues[requestId].randomWords[0] % modulatorPokedex;
         rarityLevel = latestRequestsWithValues[requestId].randomWords[1] % rarityModulator;

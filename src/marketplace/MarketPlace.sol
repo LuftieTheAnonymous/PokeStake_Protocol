@@ -36,8 +36,6 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
 
     error NotEnoughContractBalance();
 
-    error UnsuccessfullGrant();
-
     error NotEnoughSnorlies();
 
     error NonExistingSnorliePrelongingOffer();
@@ -96,7 +94,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
 
         // Define the price in USDC value required (paid in ETH) for prelonging the offer
         prelongingOffersInETH[2e18] = 7200;
-        prelongingOffersInETH[5e18] = 50400;
+        prelongingOffersInETH[4999999999999997798] = 50400;
         prelongingOffersInETH[10e17] = 216000;
         prelongingOffersInETH[50e18] = 2628000;
 
@@ -119,7 +117,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
 
     modifier isListingActive(uint256 listingId) {
         // If expiryBlock is reached, do not allow to purchase (revert)
-        if (listings[listingId].expiryBlock > block.number) {
+        if (listings[listingId].expiryBlock < block.number) {
             revert ListingExpired(listings[listingId].expiryBlock, listingId);
         }
         _;
@@ -169,22 +167,18 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         emit WithdrawnAmount(amountToPayout, msg.sender);
     }
 
-    function grantManagerRole(address newManager) public onlyManager {
+    function grantManagerRole(address newManager) public onlyManager returns (bool) {
         // Grant Manager role to the address
         (bool success) = _grantRole(MARKETPLACE_MANAGER_ROLE, newManager);
 
-        if (!success) {
-            revert UnsuccessfullGrant();
-        }
+      return success;
     }
 
-    function revokeManagerRole() public onlyManager {
+    function revokeManagerRole() public onlyManager returns (bool) {
         // Revoke your manager role
         (bool success) = _revokeRole(MARKETPLACE_MANAGER_ROLE, msg.sender);
 
-        if (!success) {
-            revert UnsuccessfullGrant();
-        }
+       return success;
     }
 
     function updateEthUsdPrice() public returns (uint256) {
@@ -225,7 +219,14 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
             return uint256(answer) * DECIMAL_NORMALIZER;
         }
 
-        return ethUsdPrice;
+        return ethUsdPrice * DECIMAL_NORMALIZER;
+    }
+
+    function getListing(uint256 listingId) public view returns (SaleListing memory){
+        if(listingId > s_listingAmount){
+            revert IncorrectListingIdProvided();
+        }
+        return listings[listingId];
     }
 
     function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data)
@@ -324,8 +325,15 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         // If the cases have been successfully validated, send the listing token
         nftCollection.safeTransferFrom(address(this), msg.sender, saleListing.nftId);
 
+        
         // Delete listing and emit the event
         delete listings[listingId];
+
+        s_listingAmount--;
+
+        listings[listingId] = listings[s_listingAmount];
+        
+        
         emit PokeCardSold(msg.sender, listings[listingId].nftId);
     }
 
@@ -342,6 +350,8 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         // delete listing and emit event on delisting
         delete listings[listingId];
 
+        s_listingAmount--;
+        
         emit PokeCardDelisted(listingId, pokeCardId);
     }
 
@@ -354,15 +364,14 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
     {
         // If prelong-fee is paid in ETH
         if (paidInEth) {
-            // Retrieve ethUsdPrice
-            uint256 latestEthUsdPrice = updateEthUsdPrice();
-
             // Convert sent eth-value to usdc value
-            uint256 convertedEthToUSDC = (msg.value * 1e18) / latestEthUsdPrice;
+
+            (uint256 convertedEthToUSDC) = Math.mulDivRound(msg.value, ethUsdPrice, 1e18,  Math.Rounding(2));
+
 
             // If there is no option with the amount paid, revert
             if (prelongingOffersInETH[convertedEthToUSDC] == 0) {
-                revert NotEnoughEtherToPayFee(msg.value);
+                revert NotEnoughEtherToPayFee(convertedEthToUSDC);
             }
 
             // Increase the listing expriry block
@@ -386,6 +395,8 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
             // Update expiry block
             listings[listingId].expiryBlock += prelongingOffersInSnorlies[amountOfSnorlies];
         }
+
+        updateEthUsdPrice();
         // Emit if any of this case gone without being reverted.
         emit ListingApperancePrelonged(listingId, msg.sender);
     }
