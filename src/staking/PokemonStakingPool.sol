@@ -117,7 +117,7 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
         return stakedNfts[user];
     }
 
-// Transfers token the contract
+    // Transfers token the contract
     function stake(uint256 tokenId) public onlyNftOwner(tokenId) {
         nftCollection.safeTransferFrom(msg.sender, address(this), tokenId);
     }
@@ -129,10 +129,10 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
 
         // store the destination address
         address destinationAddress = msg.sender;
-        
-        // Search the through staked positions 
+
+        // Search the through staked positions
         for (uint256 i = 0; i < stakedPositions.length; i++) {
-        // If found staked position with the sought idea
+            // If found staked position with the sought idea
             if (stakedPositions[i].nftId == tokenId) {
                 // Contract approves to send the token
                 nftCollection.approve(destinationAddress, tokenId);
@@ -150,8 +150,7 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
             }
         }
     }
-    
-    
+
     // calculates and returns the reward amount in SNORLIE-token from all staked positions.
     function calculateRewards(address user) public view returns (uint256) {
         // return staked positions
@@ -173,10 +172,10 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
                 continue; // Skip this position
             }
 
-            // Derive the rarity multiplier 
+            // Derive the rarity multiplier
             uint256 rarityMultiplier = stakedPositions[i].rarityLevel;
 
-            // calculate the rewards for staking and increase totalRewards amount 
+            // calculate the rewards for staking and increase totalRewards amount
             uint256 positionRewards = (stakedDurationInDaysWad * rewardPerOneDayOfStake * rarityMultiplier) / 1e18;
 
             totalRewards += positionRewards;
@@ -203,18 +202,18 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
         return totalAPY;
     }
 
-    // claims rewards user earned through staking 
+    // claims rewards user earned through staking
     function claimRewards() public nonReentrant {
         uint256 rewardsToClaim = getRewardAmount(msg.sender);
         // if rewards to claim are 0, revert
-        if(rewardsToClaim == 0){
+        if (rewardsToClaim == 0) {
             revert ZeroAmountOfAwards();
         }
         // Increased amount of claimed rewards
         totalRewardsClaimed[msg.sender] += rewardsToClaim;
         // Change last claimed block number
         lastClaimedAt[msg.sender] = block.number;
-        
+
         // mint reward amount
         rewardToken.mint(msg.sender, rewardsToClaim);
 

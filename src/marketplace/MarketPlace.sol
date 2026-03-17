@@ -13,11 +13,11 @@ import {AccessControl} from "../../lib/openzeppelin-contracts/contracts/access/A
 import {Math} from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 
 contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
-    // Securing the math for decimal 
+    // Securing the math for decimal
     using Math for uint256;
 
     //ERRORS
-    
+
     error NotPokeCardOwner(address caller, address actualOwner);
 
     error IncorrectAmountProvided(uint256 providedAmount, uint256 expectedAmount);
@@ -55,6 +55,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
     event ListingApperancePrelonged(uint256 listingId, address prelonger);
 
     event WithdrawnAmount(uint256 amountPaidout, address managerAddress);
+
     struct SaleListing {
         address listingOwner;
         uint256 nftId;
@@ -89,17 +90,17 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         nftCollection = PokeCardCollection(pokeCardCollectionAddress);
         snorlieCoin = SnorlieCoin(snorlieCoinAddress);
         dataFeed = AggregatorV3Interface(ethUsdPriceFeed);
-        
+
         // Updating the value for ethUsdPrice
         (uint256 ethUsdValue) = updateEthUsdPrice();
 
-        // Define the price in USDC value required (paid in ETH) for prelonging the offer 
+        // Define the price in USDC value required (paid in ETH) for prelonging the offer
         prelongingOffersInETH[2e18] = 7200;
         prelongingOffersInETH[5e18] = 50400;
         prelongingOffersInETH[10e17] = 216000;
         prelongingOffersInETH[50e18] = 2628000;
 
-        // Define the price in USDC value required (paid in SNORLIE) for prelonging the offer 
+        // Define the price in USDC value required (paid in SNORLIE) for prelonging the offer
         prelongingOffersInSnorlies[100e18] = 7200;
         prelongingOffersInETH[500e18] = 50400;
         prelongingOffersInETH[750e18] = 216000;
@@ -140,8 +141,8 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         _;
     }
 
-    modifier isNftOwner(uint256 tokenId){
-        if(nftCollection.ownerOf(tokenId) != msg.sender){
+    modifier isNftOwner(uint256 tokenId) {
+        if (nftCollection.ownerOf(tokenId) != msg.sender) {
             revert NotPokeCardOwner(msg.sender, nftCollection.ownerOf(tokenId));
         }
         _;
@@ -232,7 +233,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         override
         returns (bytes4)
     {
-        // If ERC721 
+        // If ERC721
         emit ListedPokeCard(from, tokenId);
 
         return IERC721Receiver.onERC721Received.selector;
@@ -249,7 +250,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
 
         // Increase amount of listings
         s_listingAmount++;
-        
+
         // Retrieve pokecard details
         PokeCardCollection.PokemonCard memory pokemonCardFound =
             nftCollection.getGeneratedCardByNftId(msg.sender, tokenId);
@@ -273,7 +274,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         nonReentrant
     {
         // If listing greater than actual listings amount or is 0
-          if(listingId == 0 || listingId > s_listingAmount){
+        if (listingId == 0 || listingId > s_listingAmount) {
             revert IncorrectListingIdProvided();
         }
         // Get the listing element
@@ -289,20 +290,20 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
             // Get the 2% from the actual price and convert it to eth
             uint256 royalty = (msg.value / 100) * ROYALTY_PERCENTAGE;
 
-// Get reduced value by the royalty and send it to the vendor
+            // Get reduced value by the royalty and send it to the vendor
             uint256 reducedAmountForVendor = msg.value - royalty;
 
             (bool isSuccess,) = payable(saleListing.listingOwner).call{value: reducedAmountForVendor}("");
 
-// If not successful, revert
+            // If not successful, revert
             if (!isSuccess) {
                 revert InvalidPayment();
             }
         }
         // CASE FOR PAYMENT IN SNORLIEs
-         else {
+        else {
             // If amount of snorlies provided as *snorliesAmount*
-             if (snorlieCoin.balanceOf(msg.sender) < snorliesAmount) {
+            if (snorlieCoin.balanceOf(msg.sender) < snorliesAmount) {
                 revert NotEnoughSnorlies();
             }
 
@@ -333,9 +334,9 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         // Retrieve nftId from the listing
         uint256 pokeCardId = listings[listingId].nftId;
 
-        // Approve the token to be sent to the function caller, the approver is contract 
+        // Approve the token to be sent to the function caller, the approver is contract
         nftCollection.approve(msg.sender, listings[listingId].nftId);
-        // Send the NFT to user  
+        // Send the NFT to user
         nftCollection.safeTransferFrom(address(this), msg.sender, listings[listingId].nftId);
 
         // delete listing and emit event on delisting
@@ -343,7 +344,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
 
         emit PokeCardDelisted(listingId, pokeCardId);
     }
-    
+
     // Prelongs the listing time (existence in the smart-contract), able to be paid in ETH or In-game Token
     function preLongListingTime(uint256 listingId, uint256 amountOfSnorlies, bool paidInEth)
         public
@@ -351,7 +352,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         isOwnerOfListing(listingId)
         nonReentrant
     {
-        // If prelong-fee is paid in ETH 
+        // If prelong-fee is paid in ETH
         if (paidInEth) {
             // Retrieve ethUsdPrice
             uint256 latestEthUsdPrice = updateEthUsdPrice();
@@ -366,10 +367,10 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
 
             // Increase the listing expriry block
             listings[listingId].expiryBlock += prelongingOffersInETH[convertedEthToUSDC];
-        } 
+        }
         // If Prelong lisitng time is paid in snorlies
         else {
-            // If provided amount is above caller's balance, revert 
+            // If provided amount is above caller's balance, revert
             if (snorlieCoin.balanceOf(msg.sender) < amountOfSnorlies) {
                 revert NotEnoughSnorlies();
             }

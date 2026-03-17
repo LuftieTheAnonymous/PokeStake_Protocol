@@ -24,6 +24,7 @@ contract VRFConsumer is VRFConsumerBaseV2Plus, ReentrancyGuard, AccessControl {
 
     // Events
     event ReturnedRandomness(uint256[] randomWords);
+
     struct RandomValues {
         uint256[] randomWords;
         bool isResolved;
@@ -32,7 +33,7 @@ contract VRFConsumer is VRFConsumerBaseV2Plus, ReentrancyGuard, AccessControl {
     // VRF required variables
     uint256 immutable s_subscriptionId;
     bytes32 immutable s_keyHash;
-    
+
     // Constant values
     uint32 constant CALLBACK_GAS_LIMIT = 100_000;
     uint16 constant REQUEST_CONFIRMATIONS = 3;
@@ -103,7 +104,6 @@ contract VRFConsumer is VRFConsumerBaseV2Plus, ReentrancyGuard, AccessControl {
         _revokeRole(MANAGER_ROLE, msg.sender);
     }
 
-
     // Request random number only if block time expired
     function requestRandomWords() external nonReentrant hasBlockTimeExpired returns (uint256) {
         uint256 requestId = s_vrfCoordinator.requestRandomWords(
@@ -159,7 +159,6 @@ contract VRFConsumer is VRFConsumerBaseV2Plus, ReentrancyGuard, AccessControl {
 
         return latestRequestsWithValues[requestId].randomWords;
     }
-
 
     // Update the request resolved state, to prevent re-entrancy
     function updateRequest(uint256 requestId, address caller)
