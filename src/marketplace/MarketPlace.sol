@@ -30,7 +30,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
 
     error ListingExpired(uint256 expiryBlock, uint256 listingId);
 
-    error NotOwnerOfListing(address sender);
+    error NotOwnerOfListing(address sender, address owner);
 
     error NotManager(address sender);
 
@@ -94,7 +94,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
 
         // Define the price in USDC value required (paid in ETH) for prelonging the offer
         prelongingOffersInETH[2e18] = 7200;
-        prelongingOffersInETH[4999999999999997798] = 50400;
+        prelongingOffersInETH[5e18] = 50400;
         prelongingOffersInETH[10e17] = 216000;
         prelongingOffersInETH[50e18] = 2628000;
 
@@ -110,7 +110,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
     modifier isOwnerOfListing(uint256 listingId) {
         // If caller is not owner of the listing given the listingId, revert
         if (listings[listingId].listingOwner != msg.sender) {
-            revert NotOwnerOfListing(msg.sender);
+            revert NotOwnerOfListing(msg.sender, listings[listingId].listingOwner);
         }
         _;
     }
@@ -145,8 +145,6 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         }
         _;
     }
-
-    fallback() external {}
 
     // MANAGER ONLY FUNCTIONS
 
@@ -220,6 +218,10 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         }
 
         return ethUsdPrice * DECIMAL_NORMALIZER;
+    }
+
+    function getListingsAmount() public returns(uint256) {
+        return s_listingAmount;
     }
 
     function getListing(uint256 listingId) public view returns (SaleListing memory){
@@ -358,21 +360,26 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
     // Prelongs the listing time (existence in the smart-contract), able to be paid in ETH or In-game Token
     function preLongListingTime(uint256 listingId, uint256 amountOfSnorlies, bool paidInEth)
         public
-        payable
         isOwnerOfListing(listingId)
+        payable
         nonReentrant
     {
+
         // If prelong-fee is paid in ETH
         if (paidInEth) {
             // Convert sent eth-value to usdc value
 
-            (uint256 convertedEthToUSDC) = Math.mulDivRound(msg.value, ethUsdPrice, 1e18,  Math.Rounding(2));
+            uint256 convertedEthToUSDC = Math.ceilDiv(
+    Math.mulDiv(msg.value, ethUsdPrice, 1e8),  // Divide by Chainlink's 8 decimals
+    1e18  // Then adjust for your scale
+) * 1e10;
 
 
             // If there is no option with the amount paid, revert
             if (prelongingOffersInETH[convertedEthToUSDC] == 0) {
                 revert NotEnoughEtherToPayFee(convertedEthToUSDC);
             }
+            
 
             // Increase the listing expriry block
             listings[listingId].expiryBlock += prelongingOffersInETH[convertedEthToUSDC];

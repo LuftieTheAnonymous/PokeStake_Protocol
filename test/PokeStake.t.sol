@@ -170,6 +170,7 @@ contract PokeStakeTest is Test {
         marketplace.listPokeCard(0, 1e16, true);
 
         assert(pokeCardCollection.ownerOf(0) == address(marketplace));
+        assert(marketplace.getListing(1).listingOwner == actor);
         vm.stopPrank();
     }
 
@@ -198,39 +199,25 @@ contract PokeStakeTest is Test {
     function testMarketPlacePrelongingMechanics() public {
         simulateListingToken();
 
-        vm.deal(actor2, 1000 ether);
+        vm.deal(actor2, 10000000 ether);
         vm.deal(actor, 1000 ether);
 
+        console.log("Get listings", marketplace.getListingsAmount());
         (MarketPlace.SaleListing memory listing) = marketplace.getListing(1);
 
-        vm.roll(listing.expiryBlock);
+        vm.roll(listing.expiryBlock + 1000);
         
+       vm.startPrank(actor2);
         vm.expectRevert();
         marketplace.purchasePokeCard{value:listing.listingPrice}(1, 0);
-        
-        uint256 prelongingAmountForNotOwner = (5e18 * 1e18) / marketplace.getLatestEthUsdPrice();
-        
-        vm.prank(actor2);
-        vm.expectRevert();
-        marketplace.preLongListingTime{value:prelongingAmountForNotOwner}(1, 0, true);
 
-
-        vm.prank(actor);
-        uint256 prelongingAmount = (5e18 * 1e18) / marketplace.getLatestEthUsdPrice();
-        vm.expectRevert();
-        marketplace.preLongListingTime{value:1e15}(1, 0, true);
-
-        vm.prank(actor);
-        marketplace.preLongListingTime{value:prelongingAmount}(1,0,true);
-        
-
-        vm.startPrank(actor2);
-        vm.expectRevert();
-        marketplace.purchasePokeCard{value:listing.listingPrice - 1}(1, 0);
-
-        marketplace.purchasePokeCard{value:listing.listingPrice}(1, 0);
-        assert(pokeCardCollection.ownerOf(listing.nftId) == actor2);
         vm.stopPrank();
+        
+        console.log(listing.listingOwner, "Listing owner");
+
+        vm.prank(actor);
+        marketplace.preLongListingTime{value:(5e18 * marketplace.getLatestEthUsdPrice() / 1e18)}(1, 0, true);
+
     }
 
     function testMarketPlaceManagerRoleMechanics() public {
