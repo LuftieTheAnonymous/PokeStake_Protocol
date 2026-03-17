@@ -220,7 +220,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         return ethUsdPrice * DECIMAL_NORMALIZER;
     }
 
-    function getListingsAmount() public returns(uint256) {
+    function getListingsAmount() public view returns(uint256) {
         return s_listingAmount;
     }
 
@@ -283,6 +283,29 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         // Get the listing element
         SaleListing memory saleListing = listings[listingId];
 
+
+              // CASE FOR PAYMENT IN SNORLIEs
+     
+     if(!saleListing.isPriceInEth) {
+            // If amount of snorlies provided as *snorliesAmount*
+            if (snorlieCoin.balanceOf(msg.sender) < snorliesAmount) {
+                revert NotEnoughSnorlies();
+            }
+
+            // If Snorlies amount is not enough to be paid the price
+            if (snorliesAmount != saleListing.listingPrice) {
+                revert IncorrectAmountProvided(msg.value, saleListing.listingPrice);
+            }
+
+            // Attempt the transfer to the contract
+            (bool success) = snorlieCoin.transferFrom(msg.sender, saleListing.listingOwner, snorliesAmount);
+
+            // If payment not successful, revert
+            if (!success) {
+                revert InvalidPayment();
+            }
+        }
+
         // Case for the listing in ETH
         if (saleListing.isPriceInEth) {
             // If message value does not fit the listing price, REVERT
@@ -300,26 +323,6 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
 
             // If not successful, revert
             if (!isSuccess) {
-                revert InvalidPayment();
-            }
-        }
-        // CASE FOR PAYMENT IN SNORLIEs
-        else {
-            // If amount of snorlies provided as *snorliesAmount*
-            if (snorlieCoin.balanceOf(msg.sender) < snorliesAmount) {
-                revert NotEnoughSnorlies();
-            }
-
-            // If Snorlies amount is not enough to be paid the price
-            if (snorliesAmount != saleListing.listingPrice) {
-                revert IncorrectAmountProvided(msg.value, saleListing.listingPrice);
-            }
-
-            // Attempt the transfer to the contract
-            (bool success) = snorlieCoin.transferFrom(msg.sender, saleListing.listingOwner, snorliesAmount);
-
-            // If payment not successful, revert
-            if (!success) {
                 revert InvalidPayment();
             }
         }
@@ -360,10 +363,29 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
     // Prelongs the listing time (existence in the smart-contract), able to be paid in ETH or In-game Token
     function preLongListingTime(uint256 listingId, uint256 amountOfSnorlies, bool paidInEth)
         public
+        nonReentrant
         isOwnerOfListing(listingId)
         payable
-        nonReentrant
     {
+
+          // If Prelong lisitng time is paid in snorlies
+        if(!paidInEth) {
+            // If provided amount is above caller's balance, revert
+            if (snorlieCoin.balanceOf(msg.sender) < amountOfSnorlies) {
+                revert NotEnoughSnorlies();
+            }
+
+            // If there is no option with provided amountOfSnorlies
+            if (prelongingOffersInSnorlies[amountOfSnorlies] == 0) {
+                revert NonExistingSnorliePrelongingOffer();
+            }
+
+            // Burn Snorlies
+            snorlieCoin.burn(amountOfSnorlies);
+
+            // Update expiry block
+            listings[listingId].expiryBlock += prelongingOffersInSnorlies[amountOfSnorlies];
+        }
 
         // If prelong-fee is paid in ETH
         if (paidInEth) {
@@ -384,24 +406,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
             // Increase the listing expriry block
             listings[listingId].expiryBlock += prelongingOffersInETH[convertedEthToUSDC];
         }
-        // If Prelong lisitng time is paid in snorlies
-        else {
-            // If provided amount is above caller's balance, revert
-            if (snorlieCoin.balanceOf(msg.sender) < amountOfSnorlies) {
-                revert NotEnoughSnorlies();
-            }
-
-            // If there is no option with provided amountOfSnorlies
-            if (prelongingOffersInSnorlies[amountOfSnorlies] == 0) {
-                revert NonExistingSnorliePrelongingOffer();
-            }
-
-            // Burn Snorlies
-            snorlieCoin.burn(amountOfSnorlies);
-
-            // Update expiry block
-            listings[listingId].expiryBlock += prelongingOffersInSnorlies[amountOfSnorlies];
-        }
+      
 
         updateEthUsdPrice();
         // Emit if any of this case gone without being reverted.
