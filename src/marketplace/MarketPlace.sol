@@ -244,7 +244,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
 
     function listPokeCard(uint256 tokenId, uint256 listingPrice, bool isEthPrice) public isNftOwner(tokenId) {
         // If listing price is 0, revert
-        if (listingPrice <= 0) {
+        if (listingPrice == 0) {
             revert PriceCannotBeZero();
         }
 
@@ -294,7 +294,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
 
             // If Snorlies amount is not enough to be paid the price
             if (snorliesAmount != saleListing.listingPrice) {
-                revert IncorrectAmountProvided(msg.value, saleListing.listingPrice);
+                revert IncorrectAmountProvided(snorliesAmount, saleListing.listingPrice);
             }
 
             // Attempt the transfer to the contract
@@ -332,11 +332,13 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
 
         
         // Delete listing and emit the event
+        SaleListing memory lastSaleListing = listings[s_listingAmount];
+        
         delete listings[listingId];
 
         s_listingAmount--;
-
-        listings[listingId] = listings[s_listingAmount];
+        
+        listings[listingId] = lastSaleListing;
         
         
         emit PokeCardSold(msg.sender, listings[listingId].nftId);
@@ -360,16 +362,44 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         emit PokeCardDelisted(listingId, pokeCardId);
     }
 
+    function preLongListingTimeInEth(uint256 listingId)  public
+        nonReentrant
+        isOwnerOfListing(listingId)
+        payable {
+
+    if(!listings[listingId].isPriceInEth){
+        revert InvalidPayment();    
+    }
+ // Convert sent eth-value to usdc value
+    uint256 convertedEthToUSDC = Math.ceilDiv(
+ Math.mulDiv(msg.value, ethUsdPrice, 1e8),  // Divide by Chainlink's 8 decimals
+    1e18  // Then adjust for your scale
+) * 1e10;
+
+
+            // If there is no option with the amount paid, revert
+            if (prelongingOffersInETH[convertedEthToUSDC] == 0) {
+                revert NotEnoughEtherToPayFee(convertedEthToUSDC);
+            }
+            
+            // Increase the listing expriry block
+            listings[listingId].expiryBlock += prelongingOffersInETH[convertedEthToUSDC];
+
+                  updateEthUsdPrice();
+        // Emit if any of this case gone without being reverted.
+        emit ListingApperancePrelonged(listingId, msg.sender);
+        }
+
     // Prelongs the listing time (existence in the smart-contract), able to be paid in ETH or In-game Token
-    function preLongListingTime(uint256 listingId, uint256 amountOfSnorlies, bool paidInEth)
+    function preLongListingTimeInSnorlie(uint256 listingId, uint256 amountOfSnorlies)
         public
         nonReentrant
         isOwnerOfListing(listingId)
         payable
     {
-
-          // If Prelong lisitng time is paid in snorlies
-        if(!paidInEth) {
+          if(listings[listingId].isPriceInEth){
+        revert InvalidPayment();    
+    }
             // If provided amount is above caller's balance, revert
             if (snorlieCoin.balanceOf(msg.sender) < amountOfSnorlies) {
                 revert NotEnoughSnorlies();
@@ -381,31 +411,16 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
             }
 
             // Burn Snorlies
-            snorlieCoin.burn(amountOfSnorlies);
+            (bool success) = snorlieCoin.transferFrom(msg.sender, address(this), amountOfSnorlies);
+
+            if(!success){
+                revert InvalidPayment();
+            }
 
             // Update expiry block
             listings[listingId].expiryBlock += prelongingOffersInSnorlies[amountOfSnorlies];
-        }
 
-        // If prelong-fee is paid in ETH
-        if (paidInEth) {
-            // Convert sent eth-value to usdc value
-
-            uint256 convertedEthToUSDC = Math.ceilDiv(
-    Math.mulDiv(msg.value, ethUsdPrice, 1e8),  // Divide by Chainlink's 8 decimals
-    1e18  // Then adjust for your scale
-) * 1e10;
-
-
-            // If there is no option with the amount paid, revert
-            if (prelongingOffersInETH[convertedEthToUSDC] == 0) {
-                revert NotEnoughEtherToPayFee(convertedEthToUSDC);
-            }
-            
-
-            // Increase the listing expriry block
-            listings[listingId].expiryBlock += prelongingOffersInETH[convertedEthToUSDC];
-        }
+     
       
 
         updateEthUsdPrice();

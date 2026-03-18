@@ -180,7 +180,7 @@ contract PokeStakeTest is Test {
     }
 
      function testMarketPlaceListingMechanicsSnorliePaid() public {
-        simulateListingToken(true);
+        simulateListingToken(false);
     }
 
     function testMarketPlaceDelistingMechanics() public {
@@ -219,26 +219,30 @@ contract PokeStakeTest is Test {
         
         console.log(listing.listingOwner, "Listing owner");
 
-        vm.prank(listing.listingOwner);
-        marketplace.preLongListingTime{value:(5e18 * marketplace.getLatestEthUsdPrice())/ 1e18}(1, 0, true);
+        // vm.prank(actor);
+        // marketplace.preLongListingTimeInEth{value:(5e18 * marketplace.getLatestEthUsdPrice())/ 1e18}(1);
     }
 
     function testMarketPlacePrelongingInSnorlies() public {
         testMarketPlaceListingMechanicsSnorliePaid();
 
-        vm.prank(address(pokemonStakingPool));
-        snorlieCoin.mint(actor2, 100e18);
+
+        vm.deal(actor2, 100e18);
+
+         vm.prank(address(pokemonStakingPool));
+        snorlieCoin.mint(actor, 10000e18);
 
         vm.startPrank(actor2);
           vm.expectRevert();
-        marketplace.purchasePokeCard(2, 1e12);
-
-
+        marketplace.purchasePokeCard{value:1e16}(2, 0);
 
         vm.expectRevert();
-        marketplace.purchasePokeCard(1, 1e12);
+        marketplace.purchasePokeCard{value:1e15}(1,0);
+        vm.stopPrank();
 
-        marketplace.purchasePokeCard(1, 1e16);
+        vm.startPrank(actor);
+        snorlieCoin.approve(address(marketplace), 100e18);
+        marketplace.preLongListingTimeInSnorlie(1, 100e18);
         vm.stopPrank();
     }
 
@@ -246,6 +250,9 @@ contract PokeStakeTest is Test {
         vm.startPrank(actor2);
         vm.expectRevert();
         marketplace.grantManagerRole(actor2);
+
+        vm.expectRevert();
+        marketplace.revokeManagerRole();
         vm.stopPrank();
     }
 
