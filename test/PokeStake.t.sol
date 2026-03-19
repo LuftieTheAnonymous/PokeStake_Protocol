@@ -27,14 +27,15 @@ contract PokeStakeTest is Test {
 
     address actor = makeAddr("actor");
     address actor2 = makeAddr("actor2");
-
+    address marketPlaceManager = makeAddr("marketplace_manager");
+    
     function setUp() public {
         uint256 forkId = vm.createFork("https://ethereum-sepolia-rpc.publicnode.com");
 
         vm.selectFork(forkId);
         deployer = new DeployContracts();
-        (snorlieCoin, pokeCardCollection, pokemonStakingPool, vrfMockCoordinator, 
-        randomnessConsumer, marketplace) = deployer.run();
+        (snorlieCoin, pokeCardCollection, pokemonStakingPool, vrfMockCoordinator, randomnessConsumer, marketplace) =
+            deployer.run(marketPlaceManager);
 
         vm.deal(actor, 100 ether);
         vm.deal(address(vrfMockCoordinator), 1000000 ether);
@@ -50,7 +51,7 @@ contract PokeStakeTest is Test {
         pokeCardCollection.generatePokemon("https://", "");
 
         (uint256 requestId) = randomnessConsumer.requestRandomWords();
-        
+
         // NOT ABLE TO RE-REQUEST THE WITHOUT COOLDOWN
         vm.expectRevert();
         randomnessConsumer.requestRandomWords();
@@ -58,7 +59,7 @@ contract PokeStakeTest is Test {
         // NOT FULFILLED GENERATION
         vm.expectRevert();
         pokeCardCollection.generatePokemon("https://", "");
-        
+
         vrfMockCoordinator.fulfillRandomWords(requestId, address(randomnessConsumer));
 
         pokeCardCollection.generatePokemon("https://", "");
@@ -86,10 +87,7 @@ contract PokeStakeTest is Test {
         pokeCardCollection.safeTransferFrom(actor, actor2, 0);
         vm.stopPrank();
 
-
-
         randomnessConsumer.getSubscriptionId();
-
 
         vm.startPrank(actor);
         randomnessConsumer.getRequestDataArray(msg.sender);
@@ -108,7 +106,6 @@ contract PokeStakeTest is Test {
         vm.expectRevert();
         randomnessConsumer.updateRequest(2, msg.sender);
 
-
         vm.stopPrank();
     }
 
@@ -120,7 +117,7 @@ contract PokeStakeTest is Test {
 
         vm.startPrank(actor);
 
-        // Approve to transfer token 
+        // Approve to transfer token
         pokeCardCollection.approve(address(pokemonStakingPool), 0);
 
         pokemonStakingPool.stake(0);
@@ -145,28 +142,29 @@ contract PokeStakeTest is Test {
         vm.expectRevert();
         pokemonStakingPool.unstake(0);
 
-     
         pokemonStakingPool.claimRewards();
         vm.expectRevert();
         pokemonStakingPool.claimRewards();
-        
 
         pokemonStakingPool.unstake(0);
-
 
         assert(pokeCardCollection.ownerOf(0) == actor);
 
         vm.stopPrank();
     }
 
-    function simulateListingToken(bool isEthPaid ) public {
+    function simulateListingToken(bool isEthPaid) public {
         simulatePokemonGeneration();
 
         vm.startPrank(actor);
+        
         vm.expectRevert();
         marketplace.listPokeCard(0, 1e16, isEthPaid);
 
         pokeCardCollection.approve(address(marketplace), 0);
+        vm.expectRevert();
+        marketplace.listPokeCard(0, 0, isEthPaid);
+
         marketplace.listPokeCard(0, 1e16, isEthPaid);
 
         assert(pokeCardCollection.ownerOf(0) == address(marketplace));
@@ -174,12 +172,11 @@ contract PokeStakeTest is Test {
         vm.stopPrank();
     }
 
-
     function testMarketPlaceListingMechanicsEthPaid() public {
         simulateListingToken(true);
     }
 
-     function testMarketPlaceListingMechanicsSnorliePaid() public {
+    function testMarketPlaceListingMechanicsSnorliePaid() public {
         simulateListingToken(false);
     }
 
@@ -199,50 +196,120 @@ contract PokeStakeTest is Test {
         assert(pokeCardCollection.ownerOf(0) == actor);
     }
 
-
     function testMarketPlacePrelongingInEth() public {
         simulateListingToken(true);
 
         vm.deal(actor2, 1000 ether);
-        vm.deal(actor, 1000 ether);
 
         console.log("Get listings", marketplace.getListingsAmount());
         (MarketPlace.SaleListing memory listing) = marketplace.getListing(1);
 
         vm.roll(listing.expiryBlock + 1000);
-        
-       vm.startPrank(actor2);
+
+        vm.startPrank(actor2);
         vm.expectRevert();
-        marketplace.purchasePokeCard{value:listing.listingPrice}(1, 0);
+        marketplace.purchasePokeCard{value: listing.listingPrice}(1, 0);
 
         vm.stopPrank();
-        
+
         console.log(listing.listingOwner, "Listing owner");
 
-        // vm.prank(actor);
-        // marketplace.preLongListingTimeInEth{value:(5e18 * marketplace.getLatestEthUsdPrice())/ 1e18}(1);
+        vm.deal(actor, 1000 ether);
+        // Use prank for a single call
+        
+        uint256 priceToPay = (5e18 * 1e18) / marketplace.getLatestEthUsdPrice();
+        vm.expectRevert();
+        marketplace.preLongListingTimeInEth{value: priceToPay}(1);
+
+        vm.startPrank(actor);
+        vm.expectRevert();
+        marketplace.preLongListingTimeInEth{value: 1e19}(1);
+        vm.stopPrank();
+
+
+        vm.prank(actor);
+        marketplace.preLongListingTimeInEth{value: priceToPay}(1);
+
+        uint256 marketPlaceBalanceBefore = address(marketplace).balance;
+        uint256 listingOwnerBalanceBefore = address(listing.listingOwner).balance;
+
+        assert(keccak256(abi.encode(listing.tokenURI)) != keccak256(abi.encode("")));
+
+        vm.prank(actor2);
+        marketplace.purchasePokeCard{value:listing.listingPrice}(1, 0);
+
+        uint256 marketPlaceBalanceAfter = address(marketplace).balance;
+        uint256 listingOwnerBalanceAfter = address(listing.listingOwner).balance;
+
+        assert(marketPlaceBalanceBefore < marketPlaceBalanceAfter);
+        assert(listingOwnerBalanceAfter > listingOwnerBalanceBefore);
+
+        console.log(marketPlaceBalanceBefore, "Balance before purchase (marketplace)");
+        console.log(marketPlaceBalanceAfter, "Balance after purchase (marketplace)");
+
+        console.log(listingOwnerBalanceBefore, "Balance before purchase (listing owner)");
+        console.log(listingOwnerBalanceAfter, "Balance after purchase (listing owner)");
+
+
+
+        vm.expectRevert();
+        marketplace.withdrawContractAmount(1e12);
+
+        vm.startPrank(marketPlaceManager);
+        vm.expectRevert();
+        marketplace.withdrawContractAmount(1e20);
+
+        marketplace.withdrawContractAmount(1e12);
+        vm.stopPrank();
     }
 
     function testMarketPlacePrelongingInSnorlies() public {
-        testMarketPlaceListingMechanicsSnorliePaid();
-
+        simulateListingToken(false);
 
         vm.deal(actor2, 100e18);
 
-         vm.prank(address(pokemonStakingPool));
+        vm.startPrank(actor);
+        snorlieCoin.approve(address(marketplace), 100e18);
+        vm.expectRevert();
+        marketplace.preLongListingTimeInSnorlie(1, 100e18);
+        vm.stopPrank();
+
+        vm.prank(address(pokemonStakingPool));
         snorlieCoin.mint(actor, 10000e18);
 
         vm.startPrank(actor2);
-          vm.expectRevert();
-        marketplace.purchasePokeCard{value:1e16}(2, 0);
+        vm.expectRevert();
+        marketplace.purchasePokeCard{value: 1e16}(2, 0);
 
         vm.expectRevert();
-        marketplace.purchasePokeCard{value:1e15}(1,0);
+        marketplace.purchasePokeCard{value: 1e15}(1, 0);
+        vm.stopPrank();
+
+        assert(marketplace.getListings().length != 0);
+
+        vm.roll(marketplace.getListing(1).expiryBlock + 100);
+
+        vm.startPrank(actor);
+        snorlieCoin.approve(address(marketplace), 12e18);
+        vm.expectRevert();
+        marketplace.preLongListingTimeInSnorlie(1, 12e18);
         vm.stopPrank();
 
         vm.startPrank(actor);
         snorlieCoin.approve(address(marketplace), 100e18);
         marketplace.preLongListingTimeInSnorlie(1, 100e18);
+        vm.stopPrank();
+
+
+        vm.prank(address(pokemonStakingPool));
+        snorlieCoin.mint(actor2, 100000e18);
+
+        vm.startPrank(actor2);
+        snorlieCoin.approve(marketplace.getListing(1).listingOwner, marketplace.getListing(1).listingPrice);
+        marketplace.purchasePokeCard(1, marketplace.getListing(1).listingPrice);
+        
+        
+
         vm.stopPrank();
     }
 
@@ -279,5 +346,4 @@ contract PokeStakeTest is Test {
         vm.prank(actor);
         pokeCardCollection.burn(0);
     }
-
 }

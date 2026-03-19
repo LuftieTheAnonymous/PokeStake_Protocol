@@ -21,7 +21,7 @@ contract DeployContracts is Script {
 
     bytes32 keyHash = 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
 
-    function run()
+    function run(address marketPlaceManager)
         public
         returns (SnorlieCoin, PokeCardCollection, PokemonStakingPool, VRFMockCoordinator, VRFConsumer, MarketPlace)
     {
@@ -40,7 +40,7 @@ contract DeployContracts is Script {
         pokemonStakingPool = new PokemonStakingPool(address(snorlieCoin), address(pokeCardCollection));
 
         marketplace = new MarketPlace(
-            address(snorlieCoin), address(pokeCardCollection), vm.envAddress("PRICE_FEED_ADDRESS_ETH_USD"), msg.sender
+            address(snorlieCoin), address(pokeCardCollection), vm.envAddress("PRICE_FEED_ADDRESS_ETH_USD"), marketPlaceManager
         );
 
         vrfMockCoordinator.addConsumer(subscriptionId, address(randomnessConsumer));

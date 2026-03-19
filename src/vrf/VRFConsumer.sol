@@ -149,7 +149,7 @@ contract VRFConsumer is VRFConsumerBaseV2Plus, ReentrancyGuard, AccessControl {
     {
         uint256 requestId = getRequestId(caller);
 
-        if(latestRequestsWithValues[requestId].randomWords.length == 0){
+        if (latestRequestsWithValues[requestId].randomWords.length == 0) {
             revert NotExistingRequest();
         }
 

@@ -56,8 +56,9 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
 
     struct SaleListing {
         address listingOwner;
+        uint256 listingId;
         uint256 nftId;
-        string pinataId;
+        string tokenURI;
         uint256 listingBlockNumber;
         uint256 expiryBlock;
         uint256 listingPrice;
@@ -74,9 +75,11 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
     uint256 private constant UPDATE_BLOCK_QUANTITY = 3600;
     uint256 private constant INITIAL_LISTING_DURATION_IN_BLOCK = 216000;
     bytes32 private constant MARKETPLACE_MANAGER_ROLE = keccak256("MARKETPLACE_MANAGER_ROLE");
-    mapping(uint256 listingId => SaleListing saleListing) private listings;
+    mapping(uint256 listingId => SaleListing saleListing) private listingIdToListing;
     mapping(uint256 priceInUSDC => uint256 blockQuantity) private prelongingOffersInETH;
     mapping(uint256 priceInUSDC => uint256 blockQuantity) private prelongingOffersInSnorlies;
+
+    SaleListing[] listings;
 
     constructor(
         address snorlieCoinAddress,
@@ -107,18 +110,22 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         _grantRole(MARKETPLACE_MANAGER_ROLE, initialManager);
     }
 
+    fallback() external {
+    
+    }
+
     modifier isOwnerOfListing(uint256 listingId) {
         // If caller is not owner of the listing given the listingId, revert
-        if (listings[listingId].listingOwner != msg.sender) {
-            revert NotOwnerOfListing(msg.sender, listings[listingId].listingOwner);
+        if (listingIdToListing[listingId].listingOwner != msg.sender) {
+            revert NotOwnerOfListing(msg.sender, listingIdToListing[listingId].listingOwner);
         }
         _;
     }
 
     modifier isListingActive(uint256 listingId) {
         // If expiryBlock is reached, do not allow to purchase (revert)
-        if (listings[listingId].expiryBlock < block.number) {
-            revert ListingExpired(listings[listingId].expiryBlock, listingId);
+        if (listingIdToListing[listingId].expiryBlock < block.number) {
+            revert ListingExpired(listingIdToListing[listingId].expiryBlock, listingId);
         }
         _;
     }
@@ -150,6 +157,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
 
     function withdrawContractAmount(uint256 amountToPayout)
         external
+        payable
         nonReentrant
         onlyManager
         isAmountInBalance(amountToPayout)
@@ -165,18 +173,18 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         emit WithdrawnAmount(amountToPayout, msg.sender);
     }
 
-    function grantManagerRole(address newManager) public onlyManager returns (bool) {
+    function grantManagerRole(address newManager) external onlyManager returns (bool) {
         // Grant Manager role to the address
         (bool success) = _grantRole(MARKETPLACE_MANAGER_ROLE, newManager);
 
-      return success;
+        return success;
     }
 
-    function revokeManagerRole() public onlyManager returns (bool) {
+    function revokeManagerRole() external onlyManager returns (bool) {
         // Revoke your manager role
         (bool success) = _revokeRole(MARKETPLACE_MANAGER_ROLE, msg.sender);
 
-       return success;
+        return success;
     }
 
     function updateEthUsdPrice() public returns (uint256) {
@@ -220,15 +228,34 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         return ethUsdPrice * DECIMAL_NORMALIZER;
     }
 
-    function getListingsAmount() public view returns(uint256) {
+    function getListingsAmount() external view returns (uint256) {
         return s_listingAmount;
     }
 
-    function getListing(uint256 listingId) public view returns (SaleListing memory){
-        if(listingId > s_listingAmount){
+    function getListing(uint256 listingId) public view returns (SaleListing memory) {
+        if (listingId > s_listingAmount) {
             revert IncorrectListingIdProvided();
+        }   
+        return listingIdToListing[listingId];
+    }
+
+    function getListings() external view returns (SaleListing[] memory){
+        return listings;
+    }
+
+    function deleteListingRecords(uint256 selectedListingId) internal {
+        SaleListing memory lastListing = listingIdToListing[s_listingAmount];
+        for (uint256 i = 1; i < listings.length; i++) {
+            if(listings[i].listingId == selectedListingId){
+                listings[i] = lastListing;
+                listings.pop();
+
+                delete listingIdToListing[selectedListingId];
+
+                s_listingAmount--;
+                break;
+            }
         }
-        return listings[listingId];
     }
 
     function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data)
@@ -242,7 +269,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         return IERC721Receiver.onERC721Received.selector;
     }
 
-    function listPokeCard(uint256 tokenId, uint256 listingPrice, bool isEthPrice) public isNftOwner(tokenId) {
+    function listPokeCard(uint256 tokenId, uint256 listingPrice, bool isEthPrice) external isNftOwner(tokenId) {
         // If listing price is 0, revert
         if (listingPrice == 0) {
             revert PriceCannotBeZero();
@@ -251,42 +278,45 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         // Transfer safely the token to the contract
         nftCollection.safeTransferFrom(msg.sender, address(this), tokenId);
 
-        // Increase amount of listings
+        // Increase amount of listingIdToListing
         s_listingAmount++;
 
         // Retrieve pokecard details
-        PokeCardCollection.PokemonCard memory pokemonCardFound =
-            nftCollection.getGeneratedCardByNftId(msg.sender, tokenId);
+        string memory tokenURI =nftCollection.tokenURI(tokenId);
 
-        // Create and add to listings a new object
-        listings[s_listingAmount] = SaleListing({
+        SaleListing memory newListing =  SaleListing({
             nftId: tokenId,
+            listingId: s_listingAmount,
             isPriceInEth: isEthPrice,
             listingPrice: listingPrice,
-            pinataId: pokemonCardFound.pinataId,
+            tokenURI: tokenURI,
             listingBlockNumber: block.number,
             expiryBlock: block.number + INITIAL_LISTING_DURATION_IN_BLOCK,
             listingOwner: msg.sender
         });
+
+        // Create and add to listingIdToListing a new object
+        listingIdToListing[s_listingAmount] = newListing;
+
+        listings.push(newListing);
     }
 
     function purchasePokeCard(uint256 listingId, uint256 snorliesAmount)
-        public
+        external
         payable
         isListingActive(listingId)
         nonReentrant
     {
-        // If listing greater than actual listings amount or is 0
+        // If listing greater than actual listingIdToListing amount or is 0
         if (listingId == 0 || listingId > s_listingAmount) {
             revert IncorrectListingIdProvided();
         }
         // Get the listing element
-        SaleListing memory saleListing = listings[listingId];
+        SaleListing memory saleListing = listingIdToListing[listingId];
 
+        // CASE FOR PAYMENT IN SNORLIEs
 
-              // CASE FOR PAYMENT IN SNORLIEs
-     
-     if(!saleListing.isPriceInEth) {
+        if (!saleListing.isPriceInEth) {
             // If amount of snorlies provided as *snorliesAmount*
             if (snorlieCoin.balanceOf(msg.sender) < snorliesAmount) {
                 revert NotEnoughSnorlies();
@@ -330,99 +360,88 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         // If the cases have been successfully validated, send the listing token
         nftCollection.safeTransferFrom(address(this), msg.sender, saleListing.nftId);
 
-        
         // Delete listing and emit the event
-        SaleListing memory lastSaleListing = listings[s_listingAmount];
+        deleteListingRecords(listingId);
         
-        delete listings[listingId];
-
-        s_listingAmount--;
-        
-        listings[listingId] = lastSaleListing;
-        
-        
-        emit PokeCardSold(msg.sender, listings[listingId].nftId);
+        emit PokeCardSold(msg.sender, saleListing.nftId);
     }
 
     // Removes listing
-    function delistPokemonCard(uint256 listingId) public isOwnerOfListing(listingId) nonReentrant {
+    function delistPokemonCard(uint256 listingId) external isOwnerOfListing(listingId) nonReentrant {
         // Retrieve nftId from the listing
-        uint256 pokeCardId = listings[listingId].nftId;
+        uint256 pokeCardId = listingIdToListing[listingId].nftId;
 
         // Approve the token to be sent to the function caller, the approver is contract
-        nftCollection.approve(msg.sender, listings[listingId].nftId);
+        nftCollection.approve(msg.sender, listingIdToListing[listingId].nftId);
         // Send the NFT to user
-        nftCollection.safeTransferFrom(address(this), msg.sender, listings[listingId].nftId);
+        nftCollection.safeTransferFrom(address(this), msg.sender, listingIdToListing[listingId].nftId);
 
         // delete listing and emit event on delisting
-        delete listings[listingId];
+        deleteListingRecords(listingId);
 
-        s_listingAmount--;
-        
         emit PokeCardDelisted(listingId, pokeCardId);
     }
 
-    function preLongListingTimeInEth(uint256 listingId)  public
-        nonReentrant
-        isOwnerOfListing(listingId)
-        payable {
+    function increaseExpiryBlock(uint256 listingId, uint256 amountOfBlocks) internal {
+        listingIdToListing[listingId].expiryBlock += amountOfBlocks;
 
-    if(!listings[listingId].isPriceInEth){
-        revert InvalidPayment();    
-    }
- // Convert sent eth-value to usdc value
-    uint256 convertedEthToUSDC = Math.ceilDiv(
- Math.mulDiv(msg.value, ethUsdPrice, 1e8),  // Divide by Chainlink's 8 decimals
-    1e18  // Then adjust for your scale
-) * 1e10;
-
-
-            // If there is no option with the amount paid, revert
-            if (prelongingOffersInETH[convertedEthToUSDC] == 0) {
-                revert NotEnoughEtherToPayFee(convertedEthToUSDC);
+        for (uint256 i = 0; i < listings.length; i++) {
+            if(listings[i].listingId == listingId){
+                listings[i].expiryBlock += amountOfBlocks;
+                break;
             }
-            
-            // Increase the listing expriry block
-            listings[listingId].expiryBlock += prelongingOffersInETH[convertedEthToUSDC];
+        }
+    }
 
-                  updateEthUsdPrice();
+    function preLongListingTimeInEth(uint256 listingId) external payable nonReentrant
+    isOwnerOfListing(listingId) {
+       
+        // Convert sent eth-value to usdc value
+        (uint256 convertedEthToUSDC) = Math.ceilDiv(
+            Math.mulDiv(msg.value, ethUsdPrice, 1e8), // Divide by Chainlink's 8 decimals
+            1e18 // Then adjust for your scale
+        ) * 1e10;
+
+        // If there is no option with the amount paid, revert
+        if (prelongingOffersInETH[convertedEthToUSDC] == 0) {
+            revert NotEnoughEtherToPayFee(convertedEthToUSDC);
+        }
+
+        // Increase the listing expriry block
+        increaseExpiryBlock(listingId, prelongingOffersInETH[convertedEthToUSDC]);
+
+    
+        updateEthUsdPrice();
         // Emit if any of this case gone without being reverted.
         emit ListingApperancePrelonged(listingId, msg.sender);
-        }
+    }
 
     // Prelongs the listing time (existence in the smart-contract), able to be paid in ETH or In-game Token
     function preLongListingTimeInSnorlie(uint256 listingId, uint256 amountOfSnorlies)
-        public
+        external
         nonReentrant
         isOwnerOfListing(listingId)
-        payable
     {
-          if(listings[listingId].isPriceInEth){
-        revert InvalidPayment();    
-    }
-            // If provided amount is above caller's balance, revert
-            if (snorlieCoin.balanceOf(msg.sender) < amountOfSnorlies) {
-                revert NotEnoughSnorlies();
-            }
 
-            // If there is no option with provided amountOfSnorlies
-            if (prelongingOffersInSnorlies[amountOfSnorlies] == 0) {
-                revert NonExistingSnorliePrelongingOffer();
-            }
+        // If provided amount is above caller's balance, revert
+        if (snorlieCoin.balanceOf(msg.sender) < amountOfSnorlies) {
+            revert NotEnoughSnorlies();
+        }
 
-            // Burn Snorlies
-            (bool success) = snorlieCoin.transferFrom(msg.sender, address(this), amountOfSnorlies);
+        // If there is no option with provided amountOfSnorlies
+        if (prelongingOffersInSnorlies[amountOfSnorlies] == 0) {
+            revert NonExistingSnorliePrelongingOffer();
+        }
 
-            if(!success){
-                revert InvalidPayment();
-            }
+        (bool success) = snorlieCoin.transferFrom(msg.sender, address(this), amountOfSnorlies);
 
-            // Update expiry block
-            listings[listingId].expiryBlock += prelongingOffersInSnorlies[amountOfSnorlies];
+        if (!success) {
+            revert InvalidPayment();
+        }
 
-     
-      
-
+        // Update expiry block
+        increaseExpiryBlock(listingId, prelongingOffersInSnorlies[amountOfSnorlies]);
+  
         updateEthUsdPrice();
         // Emit if any of this case gone without being reverted.
         emit ListingApperancePrelonged(listingId, msg.sender);
