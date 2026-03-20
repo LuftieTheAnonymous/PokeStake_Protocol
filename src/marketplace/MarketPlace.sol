@@ -20,6 +20,8 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
 
     error NotPokeCardOwner(address caller, address actualOwner);
 
+    error CannotBeListingOwner(uint256 listingId, address owner, address caller);
+
     error IncorrectAmountProvided(uint256 providedAmount, uint256 expectedAmount);
 
     error NotEnoughEtherToPayFee(uint256 transferredAmount);
@@ -98,7 +100,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         // Define the price in USDC value required (paid in ETH) for prelonging the offer
         prelongingOffersInETH[2e18] = 7200;
         prelongingOffersInETH[5e18] = 50400;
-        prelongingOffersInETH[10e17] = 216000;
+        prelongingOffersInETH[10e18] = 216000;
         prelongingOffersInETH[50e18] = 2628000;
 
         // Define the price in USDC value required (paid in SNORLIE) for prelonging the offer
@@ -118,6 +120,13 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         // If caller is not owner of the listing given the listingId, revert
         if (listingIdToListing[listingId].listingOwner != msg.sender) {
             revert NotOwnerOfListing(msg.sender, listingIdToListing[listingId].listingOwner);
+        }
+        _;
+    }
+
+    modifier isBuyerNotListingOwner(uint256 listingId){
+        if (listingIdToListing[listingId].listingOwner == msg.sender) {
+            revert CannotBeListingOwner(listingId, msg.sender, listingIdToListing[listingId].listingOwner);
         }
         _;
     }
@@ -243,20 +252,21 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         return listings;
     }
 
-    function deleteListingRecords(uint256 selectedListingId) internal {
-        SaleListing memory lastListing = listingIdToListing[s_listingAmount];
-        for (uint256 i = 1; i < listings.length; i++) {
-            if(listings[i].listingId == selectedListingId){
-                listings[i] = lastListing;
-                listings.pop();
+function deleteListingRecords(uint256 selectedListingId) internal {
+    SaleListing memory lastListing = listingIdToListing[s_listingAmount];
+    for (uint256 i = 0; i < listings.length; i++) {
+        if(listings[i].listingId == selectedListingId){
+            listings[i] = lastListing;
+            listings.pop();
 
-                delete listingIdToListing[selectedListingId];
+            delete listingIdToListing[selectedListingId];
 
-                s_listingAmount--;
-                break;
-            }
+            s_listingAmount--;
+            break;
         }
     }
+}
+
 
     function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data)
         external
@@ -304,6 +314,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
     function purchasePokeCard(uint256 listingId, uint256 snorliesAmount)
         external
         payable
+        isBuyerNotListingOwner(listingId)
         isListingActive(listingId)
         nonReentrant
     {
