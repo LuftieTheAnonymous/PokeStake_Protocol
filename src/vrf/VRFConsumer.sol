@@ -23,7 +23,7 @@ contract VRFConsumer is VRFConsumerBaseV2Plus, ReentrancyGuard, AccessControl {
     error BlockTimeNotExpired();
 
     // Events
-    event ReturnedRandomness(uint256[] randomWords);
+    event ReturnedRandomness(uint256 requestId, address caller, uint256[] randomWords);
 
     struct RandomValues {
         uint256[] randomWords;
@@ -128,7 +128,7 @@ contract VRFConsumer is VRFConsumerBaseV2Plus, ReentrancyGuard, AccessControl {
     // Internal function to fulfill random values and update the object of random values
     function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
         latestRequestsWithValues[requestId] = RandomValues(randomWords, false);
-        emit ReturnedRandomness(randomWords);
+        emit ReturnedRandomness(requestId, requestIdToCaller[requestId], randomWords);
     }
 
     // Get subscription id of the consumer
