@@ -2,9 +2,16 @@
     "wake.compiler.solc.remappings": [
         "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
         "chainlink-brownie-contracts/=lib/chainlink-brownie-contracts/",
+        "ds-test/=lib/poseidon2-evm/lib/huffmate/lib/forge-std/lib/ds-test/src/",
         "erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/",
         "forge-std/=lib/forge-std/src/",
+        "foundry-huff/=lib/poseidon2-evm/lib/foundry-huff/src/",
         "halmos-cheatcodes/=lib/openzeppelin-contracts/lib/halmos-cheatcodes/src/",
-        "openzeppelin-contracts/=lib/openzeppelin-contracts/"
+        "huffmate/=lib/poseidon2-evm/lib/huffmate/src/",
+        "openzeppelin-contracts/=lib/openzeppelin-contracts/",
+        "poseidon2-evm/=lib/poseidon2-evm/src/",
+        "solidity-stringutils/=lib/poseidon2-evm/lib/foundry-huff/lib/solidity-stringutils/",
+        "solmate/=lib/poseidon2-evm/lib/huffmate/lib/solmate/src/",
+        "stringutils/=lib/poseidon2-evm/lib/foundry-huff/lib/solidity-stringutils/"
     ]
 }
