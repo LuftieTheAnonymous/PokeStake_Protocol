@@ -48,11 +48,11 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
 
     event ListedPokeCard(address seller, uint256 tokenId);
 
-    event PokeCardSold(address puchasedBy, uint256 blockNumber);
+    event PokeCardSold(address puchasedBy, uint256 tokenId, uint256 blockNumber);
 
     event PokeCardDelisted(uint256 listingId, uint256 tokenId);
 
-    event ListingApperancePrelonged(uint256 listingId, address prelonger);
+    event ListingApperancePrelonged(uint256 listingId, address prelonger, uint256 prelongedUntilBlock);
 
     event WithdrawnAmount(uint256 amountPaidout, address managerAddress);
 
@@ -60,7 +60,6 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
         address listingOwner;
         uint256 listingId;
         uint256 nftId;
-        string tokenURI;
         uint256 listingBlockNumber;
         uint256 expiryBlock;
         uint256 listingPrice;
@@ -291,15 +290,11 @@ function deleteListingRecords(uint256 selectedListingId) internal {
         // Increase amount of listingIdToListing
         s_listingAmount++;
 
-        // Retrieve pokecard details
-        string memory tokenURI =nftCollection.tokenURI(tokenId);
-
         SaleListing memory newListing =  SaleListing({
             nftId: tokenId,
             listingId: s_listingAmount,
             isPriceInEth: isEthPrice,
             listingPrice: listingPrice,
-            tokenURI: tokenURI,
             listingBlockNumber: block.number,
             expiryBlock: block.number + INITIAL_LISTING_DURATION_IN_BLOCK,
             listingOwner: msg.sender
@@ -374,7 +369,7 @@ function deleteListingRecords(uint256 selectedListingId) internal {
         // Delete listing and emit the event
         deleteListingRecords(listingId);
         
-        emit PokeCardSold(msg.sender, saleListing.nftId);
+        emit PokeCardSold(msg.sender, saleListing.nftId, block.number);
     }
 
     // Removes listing
@@ -393,13 +388,13 @@ function deleteListingRecords(uint256 selectedListingId) internal {
         emit PokeCardDelisted(listingId, pokeCardId);
     }
 
-    function increaseExpiryBlock(uint256 listingId, uint256 amountOfBlocks) internal {
+    function increaseExpiryBlock(uint256 listingId, uint256 amountOfBlocks) internal returns (uint256) {
         listingIdToListing[listingId].expiryBlock += amountOfBlocks;
 
         for (uint256 i = 0; i < listings.length; i++) {
             if(listings[i].listingId == listingId){
                 listings[i].expiryBlock += amountOfBlocks;
-                break;
+                return listings[i].expiryBlock;
             }
         }
     }
@@ -419,12 +414,12 @@ function deleteListingRecords(uint256 selectedListingId) internal {
         }
 
         // Increase the listing expriry block
-        increaseExpiryBlock(listingId, prelongingOffersInETH[convertedEthToUSDC]);
+       uint256 prelongedUntil = increaseExpiryBlock(listingId, prelongingOffersInETH[convertedEthToUSDC]);
 
     
         updateEthUsdPrice();
         // Emit if any of this case gone without being reverted.
-        emit ListingApperancePrelonged(listingId, msg.sender);
+        emit ListingApperancePrelonged(listingId, msg.sender, prelongedUntil);
     }
 
     // Prelongs the listing time (existence in the smart-contract), able to be paid in ETH or In-game Token
@@ -451,10 +446,10 @@ function deleteListingRecords(uint256 selectedListingId) internal {
         }
 
         // Update expiry block
-        increaseExpiryBlock(listingId, prelongingOffersInSnorlies[amountOfSnorlies]);
+       uint256 prelongedUntil = increaseExpiryBlock(listingId, prelongingOffersInSnorlies[amountOfSnorlies]);
   
         updateEthUsdPrice();
         // Emit if any of this case gone without being reverted.
-        emit ListingApperancePrelonged(listingId, msg.sender);
+        emit ListingApperancePrelonged(listingId, msg.sender, prelongedUntil);
     }
 }

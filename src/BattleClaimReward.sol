@@ -10,13 +10,15 @@ contract BattleClaimReward {
 
 error InvalidProof();
 
+event RewardClaim(bytes _proof, bytes32 _nullifierHash, uint256 blockNumber);
+
 
 IVerifier verifier;
 SnorlieCoin snorlieCoin;
 
 bytes32 merkleRoot;
 uint256 constant private FIELD_SIZE = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
-uint256 constant private REWARD_BASE = 5e18;
+uint256 constant private REWARD_BASE = 2e18;
 
 constructor(IVerifier _verifier, SnorlieCoin _snorlieCoin){
     verifier = _verifier;
@@ -36,6 +38,8 @@ function rewardClaim(bytes memory _proof, bytes32 _nullifierHash, bytes32 _hashS
     }
 
     snorlieCoin.mint(msg.sender, REWARD_BASE);
+
+    emit RewardClaim(_proof, _nullifierHash, block.number);
 }
 
 

@@ -19,8 +19,8 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
     error ZeroAmountOfAwards();
 
     // EVENTS
-    event Staked(address indexed user, uint256 indexed tokenId, uint256 pokemonRarityLevel, uint256 stakedAtBlock);
-    event Unstaked(address indexed user, uint256 indexed tokenId);
+    event Staked(address indexed owner, uint256 indexed tokenId, uint256 pokemonRarityLevel, uint256 stakedAtBlock);
+    event Unstaked(address indexed owner, uint256 indexed tokenId, uint256 unstakeBlock);
     event RewardsClaimed(address indexed user, uint256 amount);
 
     struct PokeStakePosition {
@@ -93,7 +93,7 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
         returns (bytes4)
     {
         // Determine the rarity level of the staked Pokemon (this is a placeholder, you would need to implement your own logic to determine rarity)
-        PokeCardCollection.PokemonCard memory pokemonCard = nftCollection.getGeneratedCardByNftId(from, tokenId);
+        PokeCardCollection.PokemonCard memory pokemonCard = nftCollection.getGeneratedCardByNftId(tokenId);
 
         // Record the staking position
         stakedNfts[from].push(
@@ -145,7 +145,7 @@ contract PokemonStakingPool is IERC721Receiver, ReentrancyGuard {
                 stakedPositions.pop();
 
                 // emit event of unstaked
-                emit Unstaked(msg.sender, tokenId);
+                emit Unstaked(msg.sender, tokenId, block.number);
                 break;
             }
         }
