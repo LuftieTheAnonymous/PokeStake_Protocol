@@ -18,7 +18,7 @@ contract PokeCardCollection is ERC721, ERC721URIStorage, ERC721Burnable, Reentra
 
     // EVENTS
 
-    event PokemonCardGenerated(address indexed user, uint256 indexed nftId, uint256 pokedexId, uint256 requestId, uint256 pinataId);
+    event PokemonCardGenerated(address indexed user, uint256 indexed nftId, uint256 pokedexId, uint256 requestId, string pinataId);
 
     event PokemonCardDestroyed(address indexed user, uint256 indexed nftId);
 

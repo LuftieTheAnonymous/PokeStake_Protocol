@@ -46,7 +46,7 @@ contract MarketPlace is IERC721Receiver, ReentrancyGuard, AccessControl {
 
     // EVENTS
 
-    event ListedPokeCard(address seller, uint256 tokenId);
+    event ListedPokeCard(address seller, uint256 tokenId, uint256 listingId);
 
     event PokeCardSold(address puchasedBy, uint256 tokenId, uint256 blockNumber);
 
@@ -273,7 +273,7 @@ function deleteListingRecords(uint256 selectedListingId) internal {
         returns (bytes4)
     {
         // If ERC721
-        emit ListedPokeCard(from, tokenId);
+        emit ListedPokeCard(from, tokenId, listingIdToListing[tokenId].listingId);
 
         return IERC721Receiver.onERC721Received.selector;
     }
