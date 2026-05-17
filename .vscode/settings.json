@@ -2,7 +2,7 @@
     "wake.compiler.solc.remappings": [
         "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
         "chainlink-brownie-contracts/=lib/chainlink-brownie-contracts/",
-        "ds-test/=lib/poseidon2-evm/lib/huffmate/lib/forge-std/lib/ds-test/src/",
+        "ds-test/=lib/poseidon2-evm/lib/huffmate/lib/solmate/lib/ds-test/src/",
         "erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/",
         "forge-std/=lib/forge-std/src/",
         "foundry-huff/=lib/poseidon2-evm/lib/foundry-huff/src/",

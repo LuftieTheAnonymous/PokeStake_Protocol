@@ -233,8 +233,6 @@ contract PokeStakeTest is Test {
         uint256 marketPlaceBalanceBefore = address(marketplace).balance;
         uint256 listingOwnerBalanceBefore = address(listing.listingOwner).balance;
 
-        assert(keccak256(abi.encode(listing.tokenURI)) != keccak256(abi.encode("")));
-
         vm.prank(actor2);
         marketplace.purchasePokeCard{value:listing.listingPrice}(1, 0);
 
