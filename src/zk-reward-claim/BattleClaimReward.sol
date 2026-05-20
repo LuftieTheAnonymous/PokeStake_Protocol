@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.27;
 
-import {IVerifier} from "./Verifier.sol"; // (TO BE IMPLEMENTED)
+import {IVerifier} from "./Verifier.sol";
 
 import {SnorlieCoin} from "../PokeCoin.sol";
 
@@ -15,15 +15,16 @@ error Invalid_MerkleRoot(bytes32 _root);
 error NullifierHash_AlreadyUsed(bytes32 _nullifierHash);
 
 event RewardClaim(bytes _proof, bytes32 _nullifierHash, uint256 blockNumber);
+event Added_MerkleRoot(bytes32 _merkleRoot, uint256 addedAtBlock);
 
 IVerifier verifier;
 SnorlieCoin snorlieCoin;
 
 bytes32 ADMIN_ROLE = bytes32("ADMIN_ROLE");
-
 mapping(bytes32 _root => bool isValid) private validMerkleRoots;
 mapping(bytes32 nullifierHash => bool isUsed) private nullifierHashUsed;
 uint256 constant private REWARD_BASE = 2e18;
+uint256 FIELD_SIZE = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
 
 constructor(IVerifier _verifier, SnorlieCoin _snorlieCoin){
     verifier = _verifier;
@@ -32,23 +33,21 @@ constructor(IVerifier _verifier, SnorlieCoin _snorlieCoin){
 }
 
 
-
-
 function rewardClaim(bytes memory _proof, bytes32 _nullifierHash, bytes32 _hashSecret, bytes32 _merkleRoot) external {
     
     if(!validMerkleRoots[_merkleRoot]){
         revert Invalid_MerkleRoot(_merkleRoot);
     }
 
-    if(nullifierHashUsed[nullifierHashUsed]){
+    if(nullifierHashUsed[_nullifierHash]){
         revert NullifierHash_AlreadyUsed(_nullifierHash);
     }
 
-    bytes32[] memory _publicInputs = new bytes32[](3);
+    bytes32[] memory _publicInputs = new bytes32[](4);
     _publicInputs[0] = _nullifierHash;
     _publicInputs[1] = _hashSecret;
-    _publicInputs[2] = bytes32(uint256(keccak256(abi.encode(msg.sender))) % FIELD_SIZE);
-    _publicInputs[3] = merkleRoot; 
+     _publicInputs[2] = bytes32(uint256(uint160(msg.sender)) % FIELD_SIZE);
+    _publicInputs[3] = _merkleRoot; 
 
     bool proofValidity = verifier.verify(_proof, _publicInputs);
 
@@ -68,7 +67,8 @@ function rewardClaim(bytes memory _proof, bytes32 _nullifierHash, bytes32 _hashS
 
 function addValidMerkleRoot(bytes32 _merkleRoot) external onlyRole(ADMIN_ROLE) {
     validMerkleRoots[_merkleRoot] = true;
-}
 
+    emit Added_MerkleRoot(_merkleRoot, block.number);
+}
 
 }
