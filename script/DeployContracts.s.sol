@@ -7,6 +7,7 @@ import {SnorlieCoin} from "../src/PokeCoin.sol";
 import {PokeCardCollection} from "../src/PokeCardCollection.sol";
 import {PokemonStakingPool} from "../src/staking/PokemonStakingPool.sol";
 import {VRFConsumer} from "../src/vrf/VRFConsumer.sol";
+import {BattleClaimReward} from "../src/reward-claim/BattleClaimReward.sol";
 
 contract DeployContracts is Script {
     SnorlieCoin snorlieCoin;
@@ -14,8 +15,19 @@ contract DeployContracts is Script {
     PokemonStakingPool pokemonStakingPool;
     VRFConsumer randomnessConsumer;
     MarketPlace marketplace;
+    BattleClaimReward battleClaimReward;
 
-    function run() public returns (SnorlieCoin, PokeCardCollection, PokemonStakingPool, VRFConsumer, MarketPlace) {
+    function run()
+        public
+        returns (
+            SnorlieCoin,
+            PokeCardCollection,
+            PokemonStakingPool,
+            VRFConsumer,
+            MarketPlace,
+            BattleClaimReward
+        )
+    {
         vm.startBroadcast();
         randomnessConsumer = new VRFConsumer(
             vm.envUint("SUBSCRIPTION_ID_SEPOLIA"),
@@ -24,20 +36,41 @@ contract DeployContracts is Script {
         );
 
         snorlieCoin = new SnorlieCoin();
-        pokeCardCollection = new PokeCardCollection(address(randomnessConsumer));
+        pokeCardCollection = new PokeCardCollection(
+            address(randomnessConsumer)
+        );
+        pokemonStakingPool = new PokemonStakingPool(
+            address(snorlieCoin),
+            address(pokeCardCollection)
+        );
 
-        pokemonStakingPool = new PokemonStakingPool(address(snorlieCoin), address(pokeCardCollection));
+        battleClaimReward = new BattleClaimReward(
+            msg.sender,
+            snorlieCoin
+        );
+
+        snorlieCoin.grantMinterRole(address(battleClaimReward));
 
         snorlieCoin.transferOwnership(address(pokemonStakingPool));
 
         randomnessConsumer.transferManagerRole(address(pokeCardCollection));
 
         marketplace = new MarketPlace(
-            address(snorlieCoin), address(pokeCardCollection), vm.envAddress("PRICE_FEED_ADDRESS_ETH_USD"), msg.sender
+            address(snorlieCoin),
+            address(pokeCardCollection),
+            vm.envAddress("PRICE_FEED_ADDRESS_ETH_USD"),
+            msg.sender
         );
 
         vm.stopBroadcast();
 
-        return (snorlieCoin, pokeCardCollection, pokemonStakingPool, randomnessConsumer, marketplace);
+        return (
+            snorlieCoin,
+            pokeCardCollection,
+            pokemonStakingPool,
+            randomnessConsumer,
+            marketplace,
+            battleClaimReward
+        );
     }
 }

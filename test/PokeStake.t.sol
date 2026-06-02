@@ -12,10 +12,16 @@ import {PokemonStakingPool} from "../src/staking/PokemonStakingPool.sol";
 import {DeployContracts} from "../script/DeployTestContracts.s.sol";
 import {VRFMockCoordinator} from "../src/vrf/VRFMockCoordinator.sol";
 import {VRFConsumer} from "../src/vrf/VRFConsumer.sol";
+import {BattleClaimReward} from "../src/reward-claim/BattleClaimReward.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+
+
 
 contract PokeStakeTest is Test {
     using console for uint256;
     using console for string;
+    using ECDSA for bytes32;
+
 
     DeployContracts deployer;
     SnorlieCoin snorlieCoin;
@@ -24,6 +30,7 @@ contract PokeStakeTest is Test {
     VRFMockCoordinator vrfMockCoordinator;
     VRFConsumer randomnessConsumer;
     MarketPlace marketplace;
+    BattleClaimReward battleClaimReward;
 
     address actor = makeAddr("actor");
     address actor2 = makeAddr("actor2");
@@ -34,7 +41,7 @@ contract PokeStakeTest is Test {
 
         vm.selectFork(forkId);
         deployer = new DeployContracts();
-        (snorlieCoin, pokeCardCollection, pokemonStakingPool, vrfMockCoordinator, randomnessConsumer, marketplace) =
+        (snorlieCoin, pokeCardCollection, pokemonStakingPool, vrfMockCoordinator, randomnessConsumer, marketplace, battleClaimReward) =
             deployer.run(marketPlaceManager);
 
         vm.deal(actor, 100 ether);
@@ -344,4 +351,86 @@ contract PokeStakeTest is Test {
         vm.prank(actor);
         pokeCardCollection.burn(0);
     }
+
+ function testBattleClaimReward() public {
+    vm.startPrank(actor);
+    vm.expectRevert();
+    battleClaimReward.claimBattleReward(1, actor, 100e18, "0x");
+    vm.stopPrank();
+
+    // Get the backend signer private key
+    uint256 backendPrivateKey = vm.envUint("BACKEND_SIGNER_PRIVATE_KEY");
+    
+    bytes32 battleHash = keccak256(abi.encodePacked(uint256(1), actor, uint256(100e18)));
+    
+    // Sign with the eth-signed-message prefix
+    bytes32 ethSignedHash = keccak256(abi.encodePacked(
+        "\x19Ethereum Signed Message:\n32",
+        battleHash
+    ));
+    
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(backendPrivateKey, ethSignedHash);
+    bytes memory signature = abi.encodePacked(r, s, v);
+
+    vm.startPrank(actor);
+    battleClaimReward.claimBattleReward(1, actor, 100e18, signature);
+    
+    // Should revert on second claim (already claimed)
+    vm.expectRevert(BattleClaimReward.BattleAlreadyClaimed.selector);
+    battleClaimReward.claimBattleReward(1, actor, 100e18, signature);
+    vm.stopPrank();
+
+
+    bytes32 battleHash2 = keccak256(abi.encodePacked(uint256(1), actor2, uint256(100e18)));
+    
+    // Sign with the eth-signed-message prefix
+    bytes32 ethSignedHash2 = keccak256(abi.encodePacked(
+        "\x19Ethereum Signed Message:\n32",
+        battleHash2
+    ));
+    
+    (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(backendPrivateKey, ethSignedHash2);
+    bytes memory signature2 = abi.encodePacked(r2, s2, v2);
+
+    vm.startPrank(actor);
+    vm.expectRevert();
+    battleClaimReward.claimBattleReward(1, actor2, 100e18, signature2);
+    vm.stopPrank();
+}
+
+function testBattleClaimRewardPausedAndBackendSigner() public {
+    vm.startPrank(actor);
+    vm.expectRevert();
+    battleClaimReward.setPaused(true);
+    
+    vm.expectRevert();
+    battleClaimReward.setBackendSigner(actor);
+
+    vm.stopPrank();
+
+    vm.startPrank(0x0ec97D974075dDADBdB7eFD887E98D120FadAF3B);
+    battleClaimReward.setPaused(true);
+    battleClaimReward.setBackendSigner(actor);
+    vm.stopPrank();
+
+        uint256 backendPrivateKey = vm.envUint("BACKEND_SIGNER_PRIVATE_KEY");
+    
+    bytes32 battleHash = keccak256(abi.encodePacked(uint256(1), actor, uint256(100e18)));
+    
+    // Sign with the eth-signed-message prefix
+    bytes32 ethSignedHash = keccak256(abi.encodePacked(
+        "\x19Ethereum Signed Message:\n32",
+        battleHash
+    ));
+    
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(backendPrivateKey, ethSignedHash);
+    bytes memory signature = abi.encodePacked(r, s, v);
+
+    vm.startPrank(actor);
+    vm.expectRevert(BattleClaimReward.RewardClaimPaused.selector);
+    battleClaimReward.claimBattleReward(1, actor, 100e18, signature);
+    vm.stopPrank();
+
+}
+
 }
